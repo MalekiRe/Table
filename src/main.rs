@@ -1,3 +1,5 @@
+mod parser;
+
 use std::ops::Range;
 use terminal_emoji::Emoji;
 //

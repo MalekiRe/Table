@@ -1,4 +1,4 @@
-use chumsky::Parser;
+use chumsky::{Parser, text};
 use chumsky::prelude::{recursive, Simple};
 use chumsky::text::{ident, TextParser};
 
@@ -34,9 +34,13 @@ struct FunctionBody(pub Vec<Block>);
 struct File(pub FunctionBody);
 #[derive(Debug)]
 enum Expr {
-    I32(i32),
+    Literal(Literal),
     VarIdent(String),
     FnCall(FnCall),
+}
+#[derive(Debug)]
+enum Literal {
+    I32(i32),
 }
 #[derive(Debug)]
 struct FnDef {
@@ -53,7 +57,15 @@ struct FnCall {
 fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
     //let ident = ident().padded();
     let function_body = recursive(|function_body| {
+        let expr = recursive(|expr| {
+            let int = text::int(10)
+                .map(|s: String| Expr::Literal(Literal::I32(s.parse().unwrap())))
+                .padded();
+            int
+        });
+        let statement = recursive(|statement| {
 
+        });
     });
     unimplemented!();
 }
