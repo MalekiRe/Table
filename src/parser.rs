@@ -8,6 +8,10 @@ pub struct LetStatement {
     value: Expr,
 }
 #[derive(Debug)]
+pub enum Atom {
+    Literal(Literal)
+}
+#[derive(Debug)]
 pub enum Literal {
     I32(i32),
 }
@@ -23,57 +27,77 @@ pub struct FnCall {
     args: Vec<Expr>,
 }
 
+type BExp = Box<Expr>;
 #[derive(Debug)]
 pub enum Expr{
-    StatementAExpr(Statement, Box<Expr>),
-    BracedExprBlock(BracedExprBlock),
-    Literal(Literal),
-    FnCall(FnCall),
+    Atom(Atom),                // atom !';'
+    FnCall(FnCall),            // fn_call !';'
+    ExprBraced(BExp),          // '{' expr '}'
+    ExprBracedExpr(BExp, BExp),// '{' expr ';' '}' 'expr'
+    FnDefExpr(FnDef, BExp),    // fn_def expr
+    ExprExpr(BExp, BExp)       // expr ';' expr
 }
-#[derive(Debug)]
-pub enum ExprBlock {
-    Expr(Box<Expr>),
-    Braced(BracedExprBlock),
+impl Expr {
+    fn boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
 }
-#[derive(Debug)]
-pub enum StatementBlock {
-    Statements(Vec<Statement>),
-    Braced(BracedStatementBlock),
-}
+
+pub type BStatement = Box<Statement>;
 #[derive(Debug)]
 pub enum Statement {
-    BracedBlock(BracedStatementBlock),
-    ExprStatment(Box<Expr>),
-    FnDef(Box<FnDef>)
+    Braced(Vec<Statement>), // '{' statement+ '}' !expr
+    Expr(BExp),             // expr ';' !expr
+    FnDef(FnDef)            // fn_def
 }
-#[derive(Debug)]
-pub struct BracedStatementBlock(Box<StatementBlock>);
-#[derive(Debug)]
-pub struct BracedExprBlock(Box<ExprBlock>);
+
+macro_rules! expr_maker {
+    ($expr_name:ident, $expr:ident) => {
+        {
+            let semi_expr = just(";").padded().ignore_then($expr.clone()).then_ignore(just(";").not());
+            $expr_name.clone().then(semi_expr).map(|(e1, e2)|{
+                Expr::ExprExpr(Box::new(e2), Box::new(e1))
+            }).or($expr_name.clone())
+        }
+    }
+}
+
 pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
     let file = recursive(|file| {
         let atom = {
-            let int = text::int(10).map(|s: String| Expr::Literal(Literal::I32(s.parse().unwrap()))).padded();
+            let int = text::int(10).map(|s: String| Expr::Atom(Atom::Literal(Literal::I32(s.parse().unwrap())))).padded();
             int
         };
         let expr = recursive(|expr| {
-            let statement = recursive(|statement| {
-                expr.clone().then_ignore(just(';')).map(|st| {
-                  Statement::ExprStatment(Box::new(st))
-                })
+            let atom_match = expr_maker!(atom, expr);
+            let braced_inner = expr.clone().delimited_by(just("{").padded(), just("}").padded());
+            let braced_inner_match = expr_maker!(braced_inner, expr);
+            let braced_outer_match = expr.clone().then_ignore(just(";").padded()).delimited_by(just("{").padded(), just("}").padded()).then(expr).map(|(e1, e2)| {
+              Expr::ExprBracedExpr(e1.boxed(), e2.boxed())
             });
-            let expr_statement = statement.clone().then(expr.clone()).map(|(s, e)| {
-               Expr::StatementAExpr(s, Box::new(e))
-            });
-            let no_statement_type = {
-                atom
-            };
-            no_statement_type.then(just(";").ignore_then(expr)).map(|(e1, e2)| {
-                Expr::StatementAExpr(Statement::ExprStatment(Box::new(e2)), Box::new(e1))
-            }).or(no_statement_type)
+            atom_match.or(braced_inner_match).or(braced_outer_match)
         });
-        expr.map(|expr| {
-            File(FunctionBody::Expr(expr))
+        let statement = recursive(|statement| {
+            let braced = statement.clone().repeated().at_least(1).delimited_by(just("{").padded(), just("}").padded()).then_ignore(expr.clone().not());
+            let expr_stmt = expr.clone().then_ignore(just(";").padded()).then_ignore(expr.clone().not());
+
+            let braced = braced.map(|statements| {
+                Statement::Braced(statements)
+            });
+
+            let expr_stmt = expr_stmt.map(|expr| {
+               Statement::Expr(expr.boxed())
+            });
+
+            braced.or(expr_stmt)
+        });
+        // expr.map(|expr| {
+        //     File(FunctionBody::Expr(expr.boxed()))
+        // }).or(statement.map(|statement|{
+        //     File(FunctionBody::Statement(Box::new(statement)))
+        // }))
+        statement.map(|statement| {
+            File(FunctionBody::Statement(Box::new(statement)))
         })
     });
     file.then_ignore(end())
@@ -82,8 +106,8 @@ pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
 pub struct File(FunctionBody);
 #[derive(Debug)]
 pub enum FunctionBody {
-    Expr(Expr),
-    Statement(Statement),
+    Expr(BExp),
+    Statement(BStatement),
 }
 // fn hi() {
 //     let int = text::int(10)
