@@ -1,5 +1,5 @@
 use chumsky::{Parser, text};
-use chumsky::prelude::{end, just, none_of, one_of, recursive, Simple};
+use chumsky::prelude::{end, just, none_of, one_of, recursive, Recursive, Simple};
 use chumsky::text::{ident, TextParser};
 
 #[derive(Debug)]
@@ -66,45 +66,47 @@ macro_rules! delim_braces {
 }
 
 pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
+    let semicolon = just(';').padded();
     let file = recursive(|file| {
         let atom = {
             let int = text::int(10).map(|s: String| Expr::Atom(Atom::Literal(Literal::I32(s.parse().unwrap())))).padded();
             int
         };
-        let expr = recursive(|expr| {
-            let expr_inner = {
-                    atom.clone()
-                    .or(delim_braces!(expr))
-            };
-            let statement = recursive(|statement| {
-                let statement_braces = delim_braces!(statement.repeated().at_least(1));
-                let expr_inner = expr_inner.clone().then_ignore(just(';').padded());
+        let mut expr = Recursive::declare();
+        let expr_inner = {
+                atom.clone()
+                .or(delim_braces!(expr))
+        };
+        let statement = recursive(|statement| {
+            let statement_braces = delim_braces!(statement.repeated().at_least(1));
+            let expr_inner = expr_inner.clone().then_ignore(semicolon.clone());
 
-                let statement_braces = statement_braces.map(|mut statement_braces| {
-                   Statement::Braced(statement_braces)
-                });
-                let expr_inner = expr_inner.map(|exp| {
-                   Statement::Expr(exp.boxed())
-                });
-                statement_braces.or(expr_inner)
+            let statement_braces = statement_braces.map(|mut statement_braces| {
+               Statement::Braced(statement_braces)
             });
-            let statement_expr = {
-              statement.then(expr.clone()).map(|(s, e)| {
-                  Expr::StatementExp(s, e.boxed())
-              })
-            };
-            let expr_outer = {
-                statement_expr
-                    .or(atom.clone())
-                    .or(delim_braces!(expr))
-            };
-            expr_outer
+            let expr_inner = expr_inner.map(|exp| {
+               Statement::Expr(exp.boxed())
+            });
+            statement_braces.or(expr_inner)
         });
+        let statement_expr = {
+          statement.clone().then(expr.clone()).map(|(s, e)| {
+              Expr::StatementExp(s, e.boxed())
+          })
+        };
+        let expr_outer = {
+            statement_expr
+                .or(atom.clone())
+                .or(delim_braces!(expr))
+        };
+        expr.define(expr_outer);
         expr.map(|exp| {
             File(FunctionBody::Expr(exp.boxed()))
-        })
+        }).or(statement.map(|statement| {
+            File(FunctionBody::Statement(Box::new(statement)))
+        }))
     });
-    file.then_ignore(end())
+    file
 }
 #[derive(Debug)]
 pub struct File(FunctionBody);
