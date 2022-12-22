@@ -30,15 +30,13 @@ pub struct FnCall {
 type BExp = Box<Expr>;
 #[derive(Debug)]
 pub enum Expr{
-    Atom(Atom),                // atom !';'
-    FnCall(FnCall),            // fn_call !';'
-    ExprBraced(BExp),          // '{' expr '}'
-    ExprBracedExpr(BExp, BExp),// '{' expr ';' '}' 'expr'
-    FnDefExpr(FnDef, BExp),    // fn_def expr
-    ExprExpr(BExp, BExp)       // expr ';' expr
+    Atom(Atom),                  // atom
+    FnCall(FnCall),              // fn_call
+    ExprBraced(BExp),            // '{' expr '}'
+    StatementExp(Statement, BExp)// statement expr
 }
 impl Expr {
-    fn boxed(self) -> Box<Self> {
+    fn boxed(self) -> BExp {
         Box::new(self)
     }
 }
@@ -46,9 +44,9 @@ impl Expr {
 pub type BStatement = Box<Statement>;
 #[derive(Debug)]
 pub enum Statement {
-    Braced(Vec<Statement>), // '{' statement+ '}' !expr
-    Expr(BExp),             // expr ';' !expr
-    FnDef(FnDef)            // fn_def
+    Braced(Vec<Statement>), // '{' statement+ '}'
+    Expr(BExp),                        // expr ';'
+    FnDef(FnDef)                       // fn_def
 }
 
 macro_rules! expr_maker {
@@ -61,6 +59,11 @@ macro_rules! expr_maker {
         }
     }
 }
+macro_rules! delim_braces {
+    ($ident:expr) => {
+        $ident.clone().delimited_by(just("{").padded(), just("}").padded())
+    }
+}
 
 pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
     let file = recursive(|file| {
@@ -69,35 +72,36 @@ pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
             int
         };
         let expr = recursive(|expr| {
-            let atom_match = expr_maker!(atom, expr);
-            let braced_inner = expr.clone().delimited_by(just("{").padded(), just("}").padded());
-            let braced_inner_match = expr_maker!(braced_inner, expr);
-            let braced_outer_match = expr.clone().then_ignore(just(";").padded()).delimited_by(just("{").padded(), just("}").padded()).then(expr).map(|(e1, e2)| {
-              Expr::ExprBracedExpr(e1.boxed(), e2.boxed())
+            let expr_inner = {
+                    atom.clone()
+                    .or(delim_braces!(expr))
+            };
+            let statement = recursive(|statement| {
+                let statement_braces = delim_braces!(statement.repeated().at_least(1));
+                let expr_inner = expr_inner.clone().then_ignore(just(';').padded());
+
+                let statement_braces = statement_braces.map(|mut statement_braces| {
+                   Statement::Braced(statement_braces)
+                });
+                let expr_inner = expr_inner.map(|exp| {
+                   Statement::Expr(exp.boxed())
+                });
+                statement_braces.or(expr_inner)
             });
-            atom_match.or(braced_inner_match).or(braced_outer_match)
+            let statement_expr = {
+              statement.then(expr.clone()).map(|(s, e)| {
+                  Expr::StatementExp(s, e.boxed())
+              })
+            };
+            let expr_outer = {
+                statement_expr
+                    .or(atom.clone())
+                    .or(delim_braces!(expr))
+            };
+            expr_outer
         });
-        let statement = recursive(|statement| {
-            let braced = statement.clone().repeated().at_least(1).delimited_by(just("{").padded(), just("}").padded()).then_ignore(expr.clone().not());
-            let expr_stmt = expr.clone().then_ignore(just(";").padded()).then_ignore(expr.clone().not());
-
-            let braced = braced.map(|statements| {
-                Statement::Braced(statements)
-            });
-
-            let expr_stmt = expr_stmt.map(|expr| {
-               Statement::Expr(expr.boxed())
-            });
-
-            braced.or(expr_stmt)
-        });
-        // expr.map(|expr| {
-        //     File(FunctionBody::Expr(expr.boxed()))
-        // }).or(statement.map(|statement|{
-        //     File(FunctionBody::Statement(Box::new(statement)))
-        // }))
-        statement.map(|statement| {
-            File(FunctionBody::Statement(Box::new(statement)))
+        expr.map(|exp| {
+            File(FunctionBody::Expr(exp.boxed()))
         })
     });
     file.then_ignore(end())
