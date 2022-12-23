@@ -1,0 +1,6 @@
+[book]
+authors = ["Malek"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The Table Scripting Language"
