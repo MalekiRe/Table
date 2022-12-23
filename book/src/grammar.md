@@ -11,9 +11,10 @@ expr ::=
      
 
 statement ::= 
-        '{' statement+ '}'       |
-        expr_inner ';'           |
-        func_def                 |
+        '{' statement+ '}'  |
+        expr_inner ';'      |
+        func_def            |
+        let_statement       
 
 expr_inner ::=
            atom          |
@@ -22,6 +23,10 @@ expr_inner ::=
 
 atom ::= 
      INT
+     
+     
+let_statement ::= 
+              'let' IDENT '=' expr ';'
 ```
 
 

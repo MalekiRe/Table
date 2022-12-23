@@ -5,8 +5,8 @@ use crate::parser::Statement::EmptyStatement;
 
 #[derive(Debug)]
 pub struct LetStatement {
-    var_name: String,
-    value: Expr,
+    identifier: String,
+    value: BExp,
 }
 #[derive(Debug)]
 pub enum Atom {
@@ -48,9 +48,9 @@ pub enum Statement {
     Braced(Vec<Statement>), // '{' statement+ '}'
     Expr(BExp),             // expr ';'
     FnDef(FnDef),           // fn_def
+    LetStatement(LetStatement),
     EmptyStatement,
 }
-
 macro_rules! expr_maker {
     ($expr_name:ident, $expr:ident) => {
         {
@@ -93,7 +93,17 @@ pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
                     .or(delim_braces!(expr))
             };
             let statement = recursive(|statement| {
-
+                let let_statement = {
+                  just("let").padded().ignore_then(ident())
+                      .then_ignore(just("=").padded())
+                      .then(expr.clone()).then_ignore(just(';').padded())
+                      .map(|(identifier, expression)| {
+                          Statement::LetStatement(LetStatement {
+                              identifier: identifier.to_string(),
+                              value: expression.boxed()
+                          })
+                      })
+                };
                 let fn_def = {
                     let items = ident()
                         .clone()
@@ -120,9 +130,13 @@ pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
                 let expr_inner = expr_inner.map(|exp| {
                     Statement::Expr(exp.boxed())
                 });
-                statement_braces.or(expr_inner).or(just("{").padded().ignore_then(just("}")).map(|_| {
+                statement_braces
+                    .or(expr_inner)
+                    .or(just("{").padded().ignore_then(just("}")).map(|_| {
                     EmptyStatement
-                })).or(fn_def)
+                }))
+                    .or(fn_def)
+                    .or(let_statement)
             });
             let statement_expr = {
                 statement.clone().then(expr.clone()).map(|(s, e)| {
