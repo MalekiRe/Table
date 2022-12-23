@@ -1,6 +1,7 @@
-use chumsky::{Parser, text};
+use chumsky::{Parser, primitive, text};
 use chumsky::prelude::{end, just, none_of, one_of, recursive, Recursive, Simple};
 use chumsky::text::{ident, TextParser};
+use crate::parser::Statement::EmptyStatement;
 
 #[derive(Debug)]
 pub struct LetStatement {
@@ -45,8 +46,9 @@ pub type BStatement = Box<Statement>;
 #[derive(Debug)]
 pub enum Statement {
     Braced(Vec<Statement>), // '{' statement+ '}'
-    Expr(BExp),                        // expr ';'
-    FnDef(FnDef)                       // fn_def
+    Expr(BExp),             // expr ';'
+    FnDef(FnDef),           // fn_def
+    EmptyStatement,
 }
 
 macro_rules! expr_maker {
@@ -68,48 +70,89 @@ macro_rules! delim_braces {
 pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
     let semicolon = just(';').padded();
     let file = recursive(|file| {
-        let atom = {
-            let int = text::int(10).map(|s: String| Expr::Atom(Atom::Literal(Literal::I32(s.parse().unwrap())))).padded();
-            int
-        };
-        let mut expr = Recursive::declare();
-        let expr_inner = {
+        let fn_body = recursive(|fn_body| {
+            let atom = {
+                let int = text::int(10).map(|s: String| Expr::Atom(Atom::Literal(Literal::I32(s.parse().unwrap())))).padded();
+                int
+            };
+            let mut expr = Recursive::declare();
+            let fn_call = {
+                let items = expr
+                    .clone()
+                    .separated_by(just(',').padded())
+                    .allow_trailing();
+                ident().then(
+                    items.delimited_by(just("(").padded(), just(")").padded())
+                ).map(|(ident, args)| {
+                    Expr::FnCall(FnCall{ name: ident.to_string(), args })
+                })
+            };
+            let expr_inner = {
                 atom.clone()
-                .or(delim_braces!(expr))
-        };
-        let statement = recursive(|statement| {
-            let statement_braces = delim_braces!(statement.repeated().at_least(1));
-            let expr_inner = expr_inner.clone().then_ignore(semicolon.clone());
+                    .or(fn_call.clone())
+                    .or(delim_braces!(expr))
+            };
+            let statement = recursive(|statement| {
 
-            let statement_braces = statement_braces.map(|mut statement_braces| {
-               Statement::Braced(statement_braces)
+                let fn_def = {
+                    let items = ident()
+                        .clone()
+                        .separated_by(just(',').padded())
+                        .allow_trailing();
+                    just("fn").padded().ignore_then(ident()).then(
+                        items.delimited_by(just("(").padded(), just(")").padded())
+                    ).then(fn_body)
+                };
+                let fn_def = fn_def.map(|((ident, args), fn_body)| {
+                    Statement::FnDef(FnDef{
+                        name: ident.to_string(),
+                        args,
+                        body: fn_body
+                    })
+                });
+
+                let statement_braces = delim_braces!(statement.repeated().at_least(1));
+                let expr_inner = expr_inner.clone().then_ignore(semicolon.clone());
+
+                let statement_braces = statement_braces.map(|mut statement_braces| {
+                    Statement::Braced(statement_braces)
+                });
+                let expr_inner = expr_inner.map(|exp| {
+                    Statement::Expr(exp.boxed())
+                });
+                statement_braces.or(expr_inner).or(just("{").padded().ignore_then(just("}")).map(|_| {
+                    EmptyStatement
+                })).or(fn_def)
             });
-            let expr_inner = expr_inner.map(|exp| {
-               Statement::Expr(exp.boxed())
-            });
-            statement_braces.or(expr_inner)
+            let statement_expr = {
+                statement.clone().then(expr.clone()).map(|(s, e)| {
+                    Expr::StatementExp(s, e.boxed())
+                })
+            };
+            let expr_outer = {
+                statement_expr
+                    .or(atom.clone())
+                    .or(fn_call.clone())
+                    .or(delim_braces!(expr))
+            };
+            expr.define(expr_outer);
+            expr.map(|exp| {
+                FunctionBody::Expr(exp.boxed())
+            }).or(statement.map(|statement| {
+                FunctionBody::Statement(Box::new(statement))
+            }))
         });
-        let statement_expr = {
-          statement.clone().then(expr.clone()).map(|(s, e)| {
-              Expr::StatementExp(s, e.boxed())
-          })
-        };
-        let expr_outer = {
-            statement_expr
-                .or(atom.clone())
-                .or(delim_braces!(expr))
-        };
-        expr.define(expr_outer);
-        expr.map(|exp| {
-            File(FunctionBody::Expr(exp.boxed()))
-        }).or(statement.map(|statement| {
-            File(FunctionBody::Statement(Box::new(statement)))
-        }))
+        fn_body.map(|fn_body| {
+            File::FunctionBody(fn_body)
+        })
     });
     file
 }
 #[derive(Debug)]
-pub struct File(FunctionBody);
+pub enum File{
+    FunctionBody(FunctionBody),
+    Empty,
+}
 #[derive(Debug)]
 pub enum FunctionBody {
     Expr(BExp),
