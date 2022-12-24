@@ -13,7 +13,7 @@ pub enum PrimitiveValue {
     Boolean(BooleanValues),
     Function(FnClosure)
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Table(pub IndexMap<TableKey, Exp>);
 impl Table {
     pub fn new() -> Self {
@@ -58,7 +58,7 @@ pub struct FnClosure {
 }
 pub type BExp = Box<Exp>;
 pub type PExp = Spanned<Exp>;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Exp {
     PrimitiveValue(PrimitiveValue),
     Table(Box<Table>),
@@ -68,14 +68,14 @@ pub enum Exp {
     FnCall(FnCall),
     Error,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Statements(Vec<Statement>),
     ExpStatement(BExp),
     FnDef(Box<FnDef>),
     Let(LetStatement),
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FnBody {
     StatementsExp {
         statements: Vec<Statement>,
@@ -88,23 +88,23 @@ pub enum FnBody {
     Exp(BExp),
     Empty //should be a braced empty, like `{ }`
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnDef {
     pub identifier: String,
     pub args: Vec<String>,
     pub fn_body: FnBody,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnCall {
     pub identifier: String,
     pub args: Vec<BExp>,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LetStatement {
     pub identifier: String,
     pub value: BExp,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParserFile{
     StatementsExp(Vec<Statement>, BExp),
     Statements(Vec<Statement>),
