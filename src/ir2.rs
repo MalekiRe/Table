@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use indexmap::IndexMap;
-use crate::parser2::{Exp, FnBody, LetStatement, ParserFile, PrimitiveValue, Statement, TableKey};
+use crate::parser2::{BinaryOp, Exp, FnBody, LetStatement, ParserFile, PrimitiveValue, Statement, TableKey};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -95,7 +95,9 @@ fn evaluate_exp(mut scope: Scope, exp: Exp) -> ScopeVal {
             ScopeVal::from(scope, Value::PrimitiveValue(primitive_value))
         }
         Exp::Table(_) => {unimplemented!()}
-        Exp::Binary(_, _, _) => {unimplemented!()}
+        Exp::Binary(bexp1, binary_op, bexp2) => {
+            evaluate_binary_op(scope, *bexp1, *bexp2, binary_op)
+        }
         Exp::LocalVar(local_var) => {
             let val = scope.resolve(local_var.as_str()).unwrap();
             ScopeVal::from(scope, val)
@@ -109,6 +111,44 @@ fn evaluate_exp(mut scope: Scope, exp: Exp) -> ScopeVal {
         }
         Exp::FnCall(_) => {unimplemented!()}
         Exp::Error => {unreachable!()}
+    }
+}
+fn evaluate_binary_op(mut scope: Scope, exp1: Exp, exp2: Exp, binary_op: BinaryOp) -> ScopeVal {
+    let scope_val = evaluate_exp(scope, exp1);
+    let val1 = scope_val.val;
+    let scope_val = evaluate_exp(scope_val.scope, exp2);
+    let val2 = scope_val.val;
+    match binary_op {
+        BinaryOp::Add => {
+            match val1 {
+                Value::PrimitiveValue(primitive_val) => {
+                    match primitive_val {
+                        PrimitiveValue::Number(number1) => {
+                            match val2 {
+                                Value::PrimitiveValue(primtive_value) => {
+                                    match primtive_value {
+                                        PrimitiveValue::Number(number2) => {
+                                            ScopeVal::from(scope_val.scope, Value::PrimitiveValue(PrimitiveValue::Number(number1+number2)))
+                                        }
+                                        _ => panic!("val2 of thing is not a number")
+                                    }
+                                }
+                                _ => panic!("val2 of thing is not a primitive value")
+                            }
+                        }
+                        _ => panic!("val1 of thing is not a number")
+                    }
+                }
+                _ => panic!("val1 of thing is not a primitive value")
+            }
+        }
+        BinaryOp::Sub => unimplemented!(),
+        BinaryOp::Mul => unimplemented!(),
+        BinaryOp::Div => unimplemented!(),
+        BinaryOp::Eq => unimplemented!(),
+        BinaryOp::NotEq => unimplemented!(),
+        BinaryOp::And => unimplemented!(),
+        BinaryOp::Or => unimplemented!(),
     }
 }
 fn evaluate_statement(mut scope: Scope, statement: Statement) -> Scope {
