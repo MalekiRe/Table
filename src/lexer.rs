@@ -3,7 +3,6 @@ use chumsky::error::Simple;
 use chumsky::{Parser, text};
 use chumsky::prelude::{filter, just, one_of, skip_then_retry_until, take_until};
 use chumsky::text::TextParser;
-use crate::parser::File;
 
 pub type Span = std::ops::Range<usize>;
 

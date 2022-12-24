@@ -1,5 +1,3 @@
-mod parser;
-mod ir;
 mod lexer;
 mod parser2;
 mod ir2;
