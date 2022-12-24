@@ -5,6 +5,8 @@ mod parser2;
 
 use chumsky::{Parser, Stream};
 use std::ops::Range;
+use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
+use chumsky::prelude::Simple;
 use terminal_emoji::Emoji;
 use crate::lexer::{Span, Token};
 //
@@ -23,12 +25,89 @@ fn print_parse(src: String) {
         None => {}
         Some(tokens) => {
             let len = src.chars().count();
-            let (ast, errors) = parser2::file_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));;
-            println!("{:#?}", ast.unwrap().0);
+            let (ast, parse_errors) = parser2::file_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));;
+            do_err_messages(errors, parse_errors, src.clone());
+            match ast {
+                None => {}
+                Some(ast) => {
+                    println!("{:#?}", ast.0)
+                }
+            }
         }
     }
     // let p = parser::file_parser();
     // println!("{:#?}", p.parse(src).unwrap());
+}
+fn do_err_messages(errs: Vec<Simple<char>>, parse_errors: Vec<Simple<Token>>, src: String) {
+    errs.into_iter()
+        .map(|e| e.map(|c| c.to_string()))
+        .chain(parse_errors.into_iter().map(|e| e.map(|tok| tok.to_string())))
+        .for_each(|e| {
+            let report = Report::build(ReportKind::Error, (), e.span().start);
+
+            let report = match e.reason() {
+                chumsky::error::SimpleReason::Unclosed { span, delimiter } => report
+                    .with_message(format!(
+                        "Unclosed delimiter {}",
+                        delimiter.fg(Color::Yellow)
+                    ))
+                    .with_label(
+                        Label::new(span.clone())
+                            .with_message(format!(
+                                "Unclosed delimiter {}",
+                                delimiter.fg(Color::Yellow)
+                            ))
+                            .with_color(Color::Yellow),
+                    )
+                    .with_label(
+                        Label::new(e.span())
+                            .with_message(format!(
+                                "Must be closed before this {}",
+                                e.found()
+                                    .unwrap_or(&"end of file".to_string())
+                                    .fg(Color::Red)
+                            ))
+                            .with_color(Color::Red),
+                    ),
+                chumsky::error::SimpleReason::Unexpected => report
+                    .with_message(format!(
+                        "{}, expected {}",
+                        if e.found().is_some() {
+                            "Unexpected token in input"
+                        } else {
+                            "Unexpected end of input"
+                        },
+                        if e.expected().len() == 0 {
+                            "something else".to_string()
+                        } else {
+                            e.expected()
+                                .map(|expected| match expected {
+                                    Some(expected) => expected.to_string(),
+                                    None => "end of input".to_string(),
+                                })
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        }
+                    ))
+                    .with_label(
+                        Label::new(e.span())
+                            .with_message(format!(
+                                "Unexpected token {}",
+                                e.found()
+                                    .unwrap_or(&"end of file".to_string())
+                                    .fg(Color::Red)
+                            ))
+                            .with_color(Color::Red),
+                    ),
+                chumsky::error::SimpleReason::Custom(msg) => report.with_message(msg).with_label(
+                    Label::new(e.span())
+                        .with_message(format!("{}", msg.fg(Color::Red)))
+                        .with_color(Color::Red),
+                ),
+            };
+
+            report.finish().print(Source::from(&src)).unwrap();
+        });
 }
 // fn eval_parse(src: String) {
 //     let p = parser::file_parser();

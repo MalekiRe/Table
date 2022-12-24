@@ -9,3 +9,4 @@ edition = "2021"
 chumsky = {  git = "https://github.com/zesterer/chumsky" }
 terminal-emoji = "0.4.1"
 indexmap = "1.9.2"
+ariadne = "0.1.5"
