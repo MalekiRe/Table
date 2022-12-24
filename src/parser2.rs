@@ -74,27 +74,26 @@ pub enum Statement {
     FnDef(Box<FnDef>),
     Let(LetStatement),
 }
-// #[derive(Debug)]
-// pub enum FnBody {
-//     StatementsExp {
-//         statements: Vec<Statement>,
-//         exp: BExp,
-//     },
-//     Exp {
-//         exp: BExp,
-//     },
-//     Statements {
-//         statements: Vec<Statement>,
-//     },
-//     Empty //should be a braced empty, like `{ }`
-// }
-
 #[derive(Debug)]
 pub enum FnBody {
+    StatementsExp {
+        statements: Vec<Statement>,
+        exp: BExp,
+    },
+    Statements {
+        statements: Vec<Statement>,
+    },
     Statement(Statement),
     Exp(BExp),
-    Empty,
+    Empty //should be a braced empty, like `{ }`
 }
+
+// #[derive(Debug)]
+// pub enum FnBody {
+//     Statement(Statement),
+//     Exp(BExp),
+//     Empty,
+// }
 #[derive(Debug)]
 pub struct FnDef {
     pub identifier: String,
@@ -122,19 +121,57 @@ pub fn file_parser() -> impl Parser<Token, Spanned<ParserFile>, Error = Simple<T
     let mut fn_body = Recursive::declare();
     let mut exp = Recursive::declare();
     let mut statement = Recursive::declare();
+    let let_statement = {
+      just(Token::Let).ignore_then(ident.clone())
+          .then_ignore(just(Token::Operator("=".to_string()))).then(exp.clone()).then_ignore(just(Token::Control(';')))
+          .map(|(identifier, exp)|{
+              Statement::Let(LetStatement {
+                  identifier,
+                  value: Box::new(exp)
+              })
+          })
+    };
     let file_parse =
         fn_body.clone().map(|fn_body| {
             ParserFile(fn_body)
         });
     fn_body.define({
-        statement.clone().map(|statement| {
-            FnBody::Statement(statement)
-        }).or(exp.clone().map(|exp| {
-            FnBody::Exp(Box::new(exp))
-        }))
-            .or(just(Token::Control('{')).then_ignore(just(Token::Control('}'))).map(|_| {
-                FnBody::Empty
-            }))
+        let statements_exp = {
+          statement.clone().repeated().then(exp.clone())
+              .delimited_by(just(Token::Control('{')), just(Token::Control('}')))
+              .map(|(statements, exp)| {
+                  FnBody::StatementsExp { statements, exp: Box::new(exp) }
+              })
+        };
+        let statements = {
+            statement.clone().repeated().delimited_by(just(Token::Control('{')), just(Token::Control('}')))
+                .map(|statements| {
+                    FnBody::Statements { statements }
+                })
+        };
+        let statement = {
+            statement.clone()
+                .map(|statement| {
+                    FnBody::Statement(statement)
+                })
+        };
+        let exp_statement = {
+            exp.clone()
+                .map(|exp| {
+                    FnBody::Exp(Box::new(exp))
+                })
+        };
+        let empty = {
+            just(Token::Control('{')).then_ignore(just(Token::Control('}')))
+                .map(|_| {
+                    FnBody::Empty
+                })
+        };
+        statements_exp
+            .or(statements)
+            .or(statement)
+            .or(exp_statement)
+            .or(empty)
     });
     let fn_def = {
         let fn_def_args = ident.clone().separated_by(just(Token::Control(','))).allow_trailing();
@@ -154,6 +191,8 @@ pub fn file_parser() -> impl Parser<Token, Spanned<ParserFile>, Error = Simple<T
         fn_def.map(|fn_def| {
             Statement::FnDef(Box::new(fn_def))
         })
+            .or(statement.clone().delimited_by(just(Token::Control('{')), just(Token::Control('}'))))
+            .or(let_statement)
     });
     let mut table_construction = Recursive::declare();
     let fn_call = recursive(|fn_call| {
@@ -179,16 +218,15 @@ pub fn file_parser() -> impl Parser<Token, Spanned<ParserFile>, Error = Simple<T
         let identifier = select! {
             Token::Identifier(string) => Exp::LocalVar(string)
         }.labelled("identifier");
-        let items = exp.clone()
-            .separated_by(just(Token::Control(',')))
-            .allow_trailing();
         let atom = val
+            .or(exp.clone().delimited_by(just(Token::Control('{')), just(Token::Control('}'))))
             .or(table_construction.clone().map(|table| {
                 Exp::Table(Box::new(table))
             }))
             .or(fn_call)
             .or(identifier);
-        atom
+        let braced_exp = exp.clone().delimited_by(just(Token::Control('{')), just(Token::Control('}')));
+        atom.or(braced_exp)
     });
     table_construction.define({
         enum TableArgTypes {
