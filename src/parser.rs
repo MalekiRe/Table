@@ -5,14 +5,15 @@ use crate::parser::Statement::EmptyStatement;
 
 #[derive(Debug)]
 pub struct LetStatement {
-    identifier: String,
-    value: BExp,
+    pub identifier: String,
+    pub value: BExp,
 }
 #[derive(Debug)]
 pub enum Atom {
-    Literal(Literal)
+    Literal(Literal),
+    Variable(String),
 }
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Literal {
     I32(i32),
 }
@@ -25,18 +26,18 @@ pub struct FnDef {
 #[derive(Debug)]
 pub struct FnCall {
     name: String,
-    args: Vec<Expr>,
+    args: Vec<Exp>,
 }
 
-type BExp = Box<Expr>;
+type BExp = Box<Exp>;
 #[derive(Debug)]
-pub enum Expr{
+pub enum Exp {
     Atom(Atom),                  // atom
     FnCall(FnCall),              // fn_call
     ExprBraced(BExp),            // '{' expr '}'
     StatementExp(Statement, BExp)// statement expr
 }
-impl Expr {
+impl Exp {
     fn boxed(self) -> BExp {
         Box::new(self)
     }
@@ -69,11 +70,16 @@ macro_rules! delim_braces {
 
 pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
     let semicolon = just(';').padded();
+    let ident = text::ident()
+        .padded();
     let file = recursive(|file| {
         let fn_body = recursive(|fn_body| {
             let atom = {
-                let int = text::int(10).map(|s: String| Expr::Atom(Atom::Literal(Literal::I32(s.parse().unwrap())))).padded();
-                int
+                let int = text::int(10).map(|s: String| Exp::Atom(Atom::Literal(Literal::I32(s.parse().unwrap())))).padded();
+                let var_ident = just("fn").not().rewind()
+                    .ignore_then(just("let").not().rewind()).
+                    then(ident.clone()).map(|(_, ident)| Exp::Atom(Atom::Variable(ident)));
+                int.or(var_ident)
             };
             let mut expr = Recursive::declare();
             let fn_call = {
@@ -81,20 +87,20 @@ pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
                     .clone()
                     .separated_by(just(',').padded())
                     .allow_trailing();
-                ident().then(
+                ident.clone().then(
                     items.delimited_by(just("(").padded(), just(")").padded())
                 ).map(|(ident, args)| {
-                    Expr::FnCall(FnCall{ name: ident.to_string(), args })
+                    Exp::FnCall(FnCall{ name: ident.to_string(), args })
                 })
             };
             let expr_inner = {
-                atom.clone()
-                    .or(fn_call.clone())
+                    fn_call.clone()
+                    .or(atom.clone())
                     .or(delim_braces!(expr))
             };
             let statement = recursive(|statement| {
                 let let_statement = {
-                  just("let").padded().ignore_then(ident())
+                  just("let").padded().ignore_then(ident.clone())
                       .then_ignore(just("=").padded())
                       .then(expr.clone()).then_ignore(just(';').padded())
                       .map(|(identifier, expression)| {
@@ -105,11 +111,11 @@ pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
                       })
                 };
                 let fn_def = {
-                    let items = ident()
+                    let items = ident.clone()
                         .clone()
                         .separated_by(just(',').padded())
                         .allow_trailing();
-                    just("fn").padded().ignore_then(ident()).then(
+                    just("fn").padded().ignore_then(ident.clone()).then(
                         items.delimited_by(just("(").padded(), just(")").padded())
                     ).then(fn_body)
                 };
@@ -140,13 +146,13 @@ pub fn file_parser() -> impl Parser<char, File, Error = Simple<char>> {
             });
             let statement_expr = {
                 statement.clone().then(expr.clone()).map(|(s, e)| {
-                    Expr::StatementExp(s, e.boxed())
+                    Exp::StatementExp(s, e.boxed())
                 })
             };
             let expr_outer = {
                 statement_expr
-                    .or(atom.clone())
                     .or(fn_call.clone())
+                    .or(atom.clone())
                     .or(delim_braces!(expr))
             };
             expr.define(expr_outer);
