@@ -1,5 +1,12 @@
 # Semantics
 
+Everything in Table is deep clone by default, this can and is highly inefficient, but can be averted with the use of the `@` character.
+This makes whatever value actually pass the reference to said value. I chose `@` instead of `&` cause `@` makes more sense to newbies.
+It's the value *at* that location.
+
+If you already have an `@` and you wanna clone it, should use the `*` aka the dereference operator.
+
+
 Some semantics just layed out in code
 ```
 
