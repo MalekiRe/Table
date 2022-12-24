@@ -2,6 +2,7 @@ mod parser;
 mod ir;
 mod lexer;
 mod parser2;
+mod ir2;
 
 use chumsky::{Parser, Stream};
 use std::ops::Range;
@@ -9,28 +10,30 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::prelude::Simple;
 use terminal_emoji::Emoji;
 use crate::lexer::{Span, Token};
+use crate::parser2::ParserFile;
 //
 // mod parser;
 
 fn main() {
     let src = std::fs::read_to_string("src/test.tbl").unwrap();
-    print_parse(src.clone());
-    //eval_parse(src.clone());
+    let parser_file = print_parse(src.clone()).unwrap();
+    println!("{:#?}", ir2::evaluate_file(parser_file));
 }
 
-fn print_parse(src: String) {
+fn print_parse(src: String) -> Option<ParserFile> {
     let lexer = lexer::lexer();
     let (tokens, errors) = lexer.parse_recovery(src.clone());
     match tokens {
-        None => {}
+        None => None,
         Some(tokens) => {
             let len = src.chars().count();
             let (ast, parse_errors) = parser2::file_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));;
             do_err_messages(errors, parse_errors, src.clone());
             match ast {
-                None => {}
+                None => None,
                 Some(ast) => {
-                    println!("{:#?}", ast.0)
+                    println!("{:#?}", ast.0);
+                    Some(ast.0)
                 }
             }
         }

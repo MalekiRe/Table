@@ -19,7 +19,7 @@ impl Table {
         Table(IndexMap::new())
     }
 }
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub enum TableKey {
     Identifier(String, usize),
     NoIdentifier(usize),
@@ -87,13 +87,6 @@ pub enum FnBody {
     Exp(BExp),
     Empty //should be a braced empty, like `{ }`
 }
-
-// #[derive(Debug)]
-// pub enum FnBody {
-//     Statement(Statement),
-//     Exp(BExp),
-//     Empty,
-// }
 #[derive(Debug)]
 pub struct FnDef {
     pub identifier: String,
@@ -111,7 +104,10 @@ pub struct LetStatement {
     pub value: BExp,
 }
 #[derive(Debug)]
-pub struct ParserFile(pub FnBody);
+pub enum ParserFile{
+    StatementsExp(Vec<Statement>, BExp),
+    Statements(Vec<Statement>),
+}
 pub fn file_parser() -> impl Parser<Token, Spanned<ParserFile>, Error = Simple<Token>> + Clone {
     let ident = filter_map(|span, tok| match tok {
         Token::Identifier(ident) => Ok(ident.clone()),
@@ -131,10 +127,17 @@ pub fn file_parser() -> impl Parser<Token, Spanned<ParserFile>, Error = Simple<T
               })
           })
     };
-    let file_parse =
-        fn_body.clone().map(|fn_body| {
-            ParserFile(fn_body)
-        });
+    let file_parse = {
+        let statement_exp = statement.clone().repeated().then(exp.clone())
+            .map(|(statements, exp)|{
+                ParserFile::StatementsExp(statements, Box::new(exp))
+            });
+        let statements = statement.clone().repeated()
+            .map(|statements|{
+                ParserFile::Statements(statements)
+            });
+        statement_exp.or(statements)
+    };
     fn_body.define({
         let statements_exp = {
           statement.clone().repeated().then(exp.clone())
@@ -226,7 +229,11 @@ pub fn file_parser() -> impl Parser<Token, Spanned<ParserFile>, Error = Simple<T
             .or(fn_call)
             .or(identifier);
         let braced_exp = exp.clone().delimited_by(just(Token::Control('{')), just(Token::Control('}')));
-        atom.or(braced_exp)
+        let statements_braced_exp = statement.clone().repeated().then(exp.clone()).delimited_by(just(Token::Control('{')), just(Token::Control('}')))
+            .map(|(statements, exp)| {
+                Exp::StatementsExp(statements, Box::new(exp))
+            });
+        atom.or(braced_exp).or(statements_braced_exp)
     });
     table_construction.define({
         enum TableArgTypes {
