@@ -3,6 +3,7 @@ use chumsky::{Error, Parser, recovery, select};
 use chumsky::prelude::{end, filter_map, just, none_of, Recursive, recursive, Simple, skip_parser, skip_then_retry_until};
 use indexmap::IndexMap;
 use crate::lexer::{BooleanValues, Span, Token};
+
 pub type Spanned<T> = (T, Span);
 
 #[derive(Clone, Debug, PartialEq)]
@@ -233,7 +234,42 @@ pub fn file_parser() -> impl Parser<Token, Spanned<ParserFile>, Error = Simple<T
             .map(|(statements, exp)| {
                 Exp::StatementsExp(statements, Box::new(exp))
             });
-        atom.or(braced_exp).or(statements_braced_exp)
+        let operators = {
+            let op_exp_pre = atom.clone().or(braced_exp.clone()).or(statements_braced_exp.clone());
+            let op = just(Token::Operator("*".to_string()))
+                .to(BinaryOp::Mul)
+                .or(just(Token::Operator("/".to_string())).to(BinaryOp::Div));
+            let product = op_exp_pre
+                .clone()
+                .then(op.then(op_exp_pre).repeated())
+                .foldl(|a, (op, b)| {
+                    Exp::Binary(Box::new(a), op, Box::new(b))
+                });
+
+            // Sum ops (add and subtract) have equal precedence
+            let op = just(Token::Operator("+".to_string()))
+                .to(BinaryOp::Add)
+                .or(just(Token::Operator("-".to_string())).to(BinaryOp::Sub));
+            let sum = product
+                .clone()
+                .then(op.then(product).repeated())
+                .foldl(|a, (op, b)| {
+                    Exp::Binary(Box::new(a), op, Box::new(b))
+                });
+
+            // Comparison ops (equal, not-equal) have equal precedence
+            let op = just(Token::Operator("==".to_string()))
+                .to(BinaryOp::Eq)
+                .or(just(Token::Operator("!=".to_string())).to(BinaryOp::NotEq));
+            let compare = sum
+                .clone()
+                .then(op.then(sum).repeated())
+                .foldl(|a, (op, b)| {
+                    Exp::Binary(Box::new(a), op, Box::new(b))
+                });
+            compare
+        };
+        operators.or(atom).or(braced_exp).or(statements_braced_exp)
     });
     table_construction.define({
         enum TableArgTypes {
