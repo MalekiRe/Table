@@ -13,7 +13,9 @@ use crate::parser2::ParserFile;
 // mod parser;
 
 fn main() {
-    let src = std::fs::read_to_string("src/test.tbl").unwrap();
+    let args: Vec<String> = std::env::args().collect();
+    let src_file = args.get(1).expect("Please provide a file path to parse.");
+    let src = std::fs::read_to_string(src_file).unwrap();
     let parser_file = print_parse(src.clone()).unwrap();
     println!("{:#?}", ir2::evaluate_file(parser_file));
 }
