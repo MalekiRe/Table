@@ -13,9 +13,14 @@ use crate::parser2::ParserFile;
 // mod parser;
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let src_file = args.get(1).expect("Please provide a file path to parse.");
-    let src = std::fs::read_to_string(src_file).unwrap();
+    let src = match std::env::args().nth(1) {
+        Some(filename) => std::fs::read_to_string(filename).unwrap(),
+        None => {
+            eprintln!("File path was not provided; loading built-in test.tbl file.");
+            include_str!("test.tbl").to_string()
+        }
+    };
+
     let parser_file = print_parse(src.clone()).unwrap();
     println!("{:#?}", ir2::evaluate_file(parser_file));
 }
