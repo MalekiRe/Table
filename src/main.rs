@@ -15,7 +15,14 @@ use crate::wasm::wasm_compiler::JIT;
 // mod parser;
 
 fn main() {
-    let src = std::fs::read_to_string("src/test.tbl").unwrap();
+    let src = match std::env::args().nth(1) {
+        Some(filename) => std::fs::read_to_string(filename).unwrap(),
+        None => {
+            eprintln!("File path was not provided; loading built-in test.tbl file.");
+            include_str!("test.tbl").to_string()
+        }
+    };
+
     let parser_file = print_parse(src.clone()).unwrap();
     let mut jit = JIT::default();
     jit.compile(parser_file);
