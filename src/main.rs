@@ -1,6 +1,7 @@
 mod lexer;
 mod parser2;
 mod ir2;
+mod wasm;
 
 use chumsky::{Parser, Stream};
 use std::ops::Range;
@@ -9,13 +10,16 @@ use chumsky::prelude::Simple;
 use terminal_emoji::Emoji;
 use crate::lexer::{Span, Token};
 use crate::parser2::ParserFile;
+use crate::wasm::wasm_compiler::JIT;
 //
 // mod parser;
 
 fn main() {
     let src = std::fs::read_to_string("src/test.tbl").unwrap();
     let parser_file = print_parse(src.clone()).unwrap();
-    println!("{:#?}", ir2::evaluate_file(parser_file));
+    let mut jit = JIT::default();
+    jit.compile(parser_file);
+    //println!("{:#?}", ir2::evaluate_file(parser_file));
 }
 
 fn print_parse(src: String) -> Option<ParserFile> {

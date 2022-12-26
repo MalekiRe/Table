@@ -10,3 +10,6 @@ chumsky = {  git = "https://github.com/zesterer/chumsky" }
 terminal-emoji = "0.4.1"
 indexmap = "1.9.2"
 ariadne = "0.1.5"
+cranelift = "0.91.0"
+cranelift-jit = "0.91.0"
+cranelift-module = "0.91.0"
