@@ -14,6 +14,7 @@ pub enum Token {
     Operator(String),
     Control(char),
     InferenceIdentifier,
+    Export,
     Fn,
     Let,
     Match,
@@ -49,6 +50,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "switch" => Token::Switch,
         "true" => Token::Boolean(BooleanValues::True),
         "false" => Token::Boolean(BooleanValues::False),
+        "export" => Token::Export,
         "_" => Token::InferenceIdentifier,
         _ => Token::Identifier(ident)
     });
@@ -82,6 +84,7 @@ impl fmt::Display for Token {
             Token::Let => write!(f, "let"),
             Token::Match => write!(f, "match"),
             Token::Switch => write!(f, "switch"),
+            Token::Export => write!(f, "export"),
             Token::Boolean(boolean) => {
                 match boolean {
                     BooleanValues::True => write!(f, "true"),

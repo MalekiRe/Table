@@ -93,6 +93,13 @@ pub struct FnDef {
     pub identifier: String,
     pub args: Vec<String>,
     pub fn_body: FnBody,
+    pub exported: bool,
+}
+// TODO add this
+#[derive(Debug, Clone)]
+pub struct ImportedFn {
+    pub identifier: String,
+    pub args: Vec<String>,
 }
 #[derive(Debug, Clone)]
 pub struct FnCall {
@@ -181,15 +188,31 @@ pub fn file_parser() -> impl Parser<Token, Spanned<ParserFile>, Error = Simple<T
         let fn_def_args = ident.clone().separated_by(just(Token::Control(','))).allow_trailing();
         just(Token::Fn)
             .ignore_then(ident.clone())
+            .then(fn_def_args.clone().delimited_by(just(Token::Control('(')), just(Token::Control(')'))))
+            .then(fn_body.clone())
+            .map(|((identifier, fn_args), fn_body)| {
+                FnDef {
+                    identifier,
+                    args: fn_args,
+                    fn_body,
+                    exported: false,
+                }
+            })
+            .or(
+        just(Token::Export)
+            .ignore_then(just(Token::Fn))
+            .ignore_then(ident.clone())
             .then(fn_def_args.delimited_by(just(Token::Control('(')), just(Token::Control(')'))))
             .then(fn_body)
             .map(|((identifier, fn_args), fn_body)| {
                 FnDef {
                     identifier,
                     args: fn_args,
-                    fn_body
+                    fn_body,
+                    exported: true,
                 }
             })
+            )
     };
     statement.define({
         fn_def.map(|fn_def| {

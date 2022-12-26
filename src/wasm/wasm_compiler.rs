@@ -1,50 +1,40 @@
-use cranelift::prelude::*;
-use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{DataContext, Linkage, Module};
-use crate::parser2::ParserFile;
+use wasm_encoder::{
+    CodeSection, ExportKind, ExportSection, Function, FunctionSection, Instruction,
+    Module, TypeSection, ValType,
+};
 
-pub struct JIT {
-    /// The function builder context, which is reused across multiple
-    /// FunctionBuilder instances.
-    builder_context: FunctionBuilderContext,
+pub fn test() -> Vec<u8> {
+    let mut module = Module::new();
+    // Encode the type section.
+    let mut types = TypeSection::new();
+    let params = vec![ValType::I32, ValType::I32];
+    let results = vec![ValType::I32];
+    types.function(params, results);
+    module.section(&types);
 
-    /// The main Cranelift context, which holds the state for codegen. Cranelift
-    /// separates this from `Module` to allow for parallel compilation, with a
-    /// context per thread, though this isn't in the simple demo here.
-    ctx: codegen::Context,
+    // Encode the function section.
+    let mut functions = FunctionSection::new();
+    let type_index = 0;
+    functions.function(type_index);
+    module.section(&functions);
 
-    /// The data context, which is to data objects what `ctx` is to functions.
-    data_ctx: DataContext,
+    // Encode the export section.
+    let mut exports = ExportSection::new();
+    exports.export("f", ExportKind::Func, 0);
+    module.section(&exports);
 
-    /// The module, with the jit backend, which manages the JIT'd
-    /// functions.
-    module: JITModule,
-}
+    // Encode the code section.
+    let mut codes = CodeSection::new();
+    let locals = vec![];
+    let mut f = Function::new(locals);
+    f.instruction(&Instruction::LocalGet(0));
+    f.instruction(&Instruction::LocalGet(1));
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::End);
+    codes.function(&f);
+    module.section(&codes);
 
-impl Default for JIT {
-    fn default() -> Self {
-        let builder = JITBuilder::new(cranelift_module::default_libcall_names());
-        let module = JITModule::new(builder.unwrap());
-        Self {
-            builder_context: FunctionBuilderContext::new(),
-            ctx: module.make_context(),
-            data_ctx: DataContext::new(),
-            module,
-        }
-    }
-}
-
-impl JIT {
-    pub fn compile(&mut self, input: ParserFile) -> Result<*const u8, String> {
-        let name = "my_func";
-        let id = self.module
-            .declare_function(
-            name, Linkage::Export,
-                &self.ctx.func.signature
-        ).unwrap();
-        Err(String::from("yo"))
-    }
-    fn translate(&mut self) -> Result<(), String> {
-
-    }
+    // Extract the encoded Wasm bytes for this module.
+    let wasm_bytes = module.finish();
+    wasm_bytes
 }

@@ -10,7 +10,6 @@ use chumsky::prelude::Simple;
 use terminal_emoji::Emoji;
 use crate::lexer::{Span, Token};
 use crate::parser2::ParserFile;
-use crate::wasm::wasm_compiler::JIT;
 //
 // mod parser;
 
@@ -24,11 +23,10 @@ fn main() {
     };
 
     let parser_file = print_parse(src.clone()).unwrap();
-    let mut jit = JIT::default();
-    jit.compile(parser_file);
+    let bytes = wasm::wasm_compiler::test();
+    wasm::wasmtime_runner(bytes);
     //println!("{:#?}", ir2::evaluate_file(parser_file));
 }
-
 fn print_parse(src: String) -> Option<ParserFile> {
     let lexer = lexer::lexer();
     let (tokens, errors) = lexer.parse_recovery(src.clone());

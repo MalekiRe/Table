@@ -215,7 +215,7 @@ fn evaluate_statement(mut scope: Scope, statement: Statement) -> Scope {
 }
 fn evaluate_fn_def(mut scope: Scope, fn_def: FnDef) -> Scope {
     match fn_def {
-        FnDef { identifier, args, fn_body } => {
+        FnDef { identifier, args, fn_body, exported } => {
             let fn_closure = FnClosure {
                 args,
                 scope: scope.clone(),
