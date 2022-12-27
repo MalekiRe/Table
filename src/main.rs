@@ -2,6 +2,7 @@ mod lexer;
 mod parser2;
 mod ir2;
 mod wasm;
+mod c;
 
 use chumsky::{Parser, Stream};
 use std::ops::Range;
@@ -23,8 +24,10 @@ fn main() {
     };
 
     let parser_file = print_parse(src.clone()).unwrap();
-    let bytes = wasm::wasm_compiler::test();
-    wasm::wasmtime_runner(bytes);
+    let c_file = c::c_compiler::generate_c_file();
+    c::c_compiler::compile(c_file);
+    //let bytes = wasm::wasm_compiler::test();
+    //wasm::wasmtime_runner(bytes);
     //println!("{:#?}", ir2::evaluate_file(parser_file));
 }
 fn print_parse(src: String) -> Option<ParserFile> {
