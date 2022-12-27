@@ -1,6 +1,7 @@
-let a = 1;
-fn add(c) {
-    let b = 2;
-    a + b + c
-}
-add(5)
+//let a = 1;
+//fn add(c) {
+//    let b = 2;
+//    a + b + c
+//}
+//add(5)
+1

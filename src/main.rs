@@ -10,6 +10,7 @@ use std::ops::Range;
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::prelude::Simple;
 use terminal_emoji::Emoji;
+use crate::c::do_full_compilation;
 use crate::lexer::{Span, Token};
 use crate::parser2::ParserFile;
 //
@@ -24,11 +25,12 @@ fn main() {
         }
     };
 
-    //let parser_file = print_parse(src.clone()).unwrap();
-    let c_file = c::c_compiler::generate_c_file();
-    println!("here");
-    c::c_compiler::compile(c_file);
-    println!("am here");
+    let parser_file = print_parse(src.clone()).unwrap();
+    // let c_file = c::c_compiler::generate_c_file();
+    // println!("here");
+    // c::c_compiler::compile(c_file);
+    // println!("am here");
+    do_full_compilation(parser_file);
     let file = fs::read("target/add.wasm").unwrap();
     wasm::wasmtime_runner(file);
     //let bytes = wasm::wasm_compiler::test();

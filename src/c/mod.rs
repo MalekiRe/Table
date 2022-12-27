@@ -1,32 +1,13 @@
-pub mod c_compiler;
+use crate::c::c_compiler::{compile, generate_c_file};
+use crate::c::transpile::comp_file;
+use crate::ParserFile;
 
-pub struct CFn {
-    identifier: CIdentifier,
-    args: Vec<CArgDec>,
-    fn_body: CFnBody,
-}
-pub type CFnBody = Vec<CStatement>;
-pub type CStatement = String;
-pub struct CArgDec {
-    identifier: CIdentifier,
-    c_type: CType,
-}
-pub type CIdentifier = String;
-enum CType {
-    Float,
-    Double,
-    Long,
-    Int,
-    Short,
-    Char,
-    Struct(CStruct),
-    Union(CUnion),
-}
-struct CStruct {
-    identifier: CIdentifier,
-    members: Vec<(CIdentifier, CType)>
-}
-struct CUnion {
-    identifier: CIdentifier,
-    members: Vec<(CIdentifier, CType)>
+pub mod c_compiler;
+mod transpile;
+mod translation_wrapper;
+
+pub fn do_full_compilation(parser_file: ParserFile) {
+    let mut c_file = generate_c_file();
+    c_file.push_str(comp_file(parser_file).get_file().as_str());
+    compile(c_file);
 }

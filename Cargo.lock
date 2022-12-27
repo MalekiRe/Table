@@ -605,6 +605,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lang-c"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28a07abd9aba69140d1bb484d9c05119fe2f834f9e2112f93bd61dff4fed62f6"
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -960,8 +966,8 @@ dependencies = [
  "chumsky",
  "clang",
  "indexmap",
+ "lang-c",
  "terminal-emoji",
- "wasm-encoder",
  "wasmtime",
 ]
 
