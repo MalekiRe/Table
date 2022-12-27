@@ -1,7 +1,7 @@
 use lang_c::{ast, span};
 use lang_c::ast::{Declarator, DeclaratorKind, ExternalDeclaration, FunctionDefinition, Identifier, TranslationUnit};
 use lang_c::span::Node;
-use crate::parser2::{Exp, FnBody, FnDef, PrimitiveValue, Statement};
+use crate::parser2::{BinaryOp, Exp, FnBody, FnDef, PrimitiveValue, Statement};
 use crate::{ParserFile, Span};
 
 // pub struct FileRepr {
@@ -58,17 +58,26 @@ pub fn comp_file(file: ParserFile) -> FileRepr {
         }
     };
     let main_fn = FnDef {
-        identifier: "_start".to_string(),
+        identifier: "_main".to_string(),
         args: vec![],
         fn_body,
         exported: false
     };
+    define_start_fn(&mut file_repr);
     define_function(&mut file_repr, main_fn);
     file_repr
 }
-
+pub fn define_start_fn(file_repr: &mut FileRepr) {
+    let mut fn_header = String::from("void _start();");
+    let mut fn_dec = String::from("void _start() {\n print_table_type(_main()); \n}\n");
+    file_repr.fn_reps.push(FnRepr {
+        fn_header,
+        fn_dec,
+    });
+}
 pub fn define_function(file_repr: &mut FileRepr, fn_def: FnDef) {
-    let mut fn_header = String::from("struct TableType ");
+    let mut fn_header = String::default();
+    fn_header = String::from("struct TableType ");
     let mut fn_dec = String::from("");
     match fn_def {
         FnDef { identifier, args, fn_body, exported } => {
@@ -133,7 +142,21 @@ pub fn define_exp(exp: Exp) -> String {
             }
         }
         Exp::Table(_) => unimplemented!(),
-        Exp::Binary(_, _, _) => unimplemented!(),
+        Exp::Binary(lhs, operator, rhs) => {
+            let lhs = define_exp(*lhs);
+            let rhs = define_exp(*rhs);
+            match operator {
+                BinaryOp::Add => String::from(format!(" table_operator({}, {}, ADD) ", lhs, rhs)),
+                BinaryOp::Sub => String::from(format!(" table_operator({}, {}, SUBTRACT) ", lhs, rhs)),
+                BinaryOp::Mul => String::from(format!(" table_operator({}, {}, MULTIPLY) ", lhs, rhs)),
+                BinaryOp::Div => String::from(format!(" table_operator({}, {}, DIVIDE) ", lhs, rhs)),
+                _ => unimplemented!()
+                // BinaryOp::Eq => s.push_str("=="),
+                // BinaryOp::NotEq => s.push_str("!="),
+                // BinaryOp::And => s.push_str("&&"),
+                // BinaryOp::Or => s.push_str("||"),
+            }
+        },
         Exp::LocalVar(_) => unimplemented!(),
         Exp::StatementsExp(_, _) => unimplemented!(),
         Exp::FnCall(_) => unimplemented!(),
