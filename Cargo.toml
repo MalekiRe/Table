@@ -10,6 +10,6 @@ chumsky = {  git = "https://github.com/zesterer/chumsky" }
 terminal-emoji = "0.4.1"
 indexmap = "1.9.2"
 ariadne = "0.1.5"
-wasm-encoder = "0.20.0"
+lang-c = "0.14.0"
 wasmtime = "4.0.0"
 clang = "2.0.0"
