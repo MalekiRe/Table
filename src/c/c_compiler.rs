@@ -15,10 +15,10 @@ pub fn compile(file: String) {
         .current_dir("target")
         .arg("--target=wasm32-unknown-wasi")
         .arg("--no-standard-libraries")
-        .arg("-Wl, --export-all")
-        .arg("-Wl, --no-entry")
+        .arg("-Wl,--export-all")
+        .arg("-Wl,--no-entry")
         .arg("-o")
         .arg("add.wasm")
         .arg("full_compilation.c")
-        .exec();
+        .spawn().unwrap().wait().unwrap();
 }

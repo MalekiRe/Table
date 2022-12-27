@@ -4,6 +4,7 @@ mod ir2;
 mod wasm;
 mod c;
 
+use std::fs;
 use chumsky::{Parser, Stream};
 use std::ops::Range;
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
@@ -23,9 +24,13 @@ fn main() {
         }
     };
 
-    let parser_file = print_parse(src.clone()).unwrap();
+    //let parser_file = print_parse(src.clone()).unwrap();
     let c_file = c::c_compiler::generate_c_file();
+    println!("here");
     c::c_compiler::compile(c_file);
+    println!("am here");
+    let file = fs::read("target/add.wasm").unwrap();
+    wasm::wasmtime_runner(file);
     //let bytes = wasm::wasm_compiler::test();
     //wasm::wasmtime_runner(bytes);
     //println!("{:#?}", ir2::evaluate_file(parser_file));
