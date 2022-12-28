@@ -19,7 +19,15 @@ pub struct FileRepr {
 }
 pub struct FnRepr {
     pub fn_header: String,
-    pub fn_dec: String,
+    pub fn_dec: FnDecRepr,
+}
+pub struct FnDecRepr {
+    head: String,
+    body: FnBodyRepr,
+}
+pub struct FnBodyRepr {
+    body: String,
+    list_to_free: Vec<String>
 }
 impl FileRepr {
     pub fn new() -> Self {
@@ -69,7 +77,13 @@ pub fn comp_file(file: ParserFile) -> FileRepr {
 }
 pub fn define_start_fn(file_repr: &mut FileRepr) {
     let mut fn_header = String::from("void _start();");
-    let mut fn_dec = String::from("void _start() {\n print_table_type(_main()); \n}\n");
+    let mut fn_dec = FnDecRepr {
+        head: "void _start()".to_string(),
+        body: FnBodyRepr {
+            body: "{\n print_table_type(_main());\n }\n".to_string(),
+            list_to_free: vec![]
+        }
+    };
     file_repr.fn_reps.push(FnRepr {
         fn_header,
         fn_dec,
@@ -78,7 +92,8 @@ pub fn define_start_fn(file_repr: &mut FileRepr) {
 pub fn define_function(file_repr: &mut FileRepr, fn_def: FnDef) {
     let mut fn_header = String::default();
     fn_header = String::from("struct TableType ");
-    let mut fn_dec = String::from("");
+    let mut fn_dec_head = String::new();
+    let mut fn_dec = None;
     match fn_def {
         FnDef { identifier, args, fn_body, exported } => {
             fn_header.push_str((identifier + " ").as_str());
@@ -90,17 +105,21 @@ pub fn define_function(file_repr: &mut FileRepr, fn_def: FnDef) {
                 }
             }
             fn_header.push_str(")");
-            fn_dec.push_str(fn_header.as_str());
-            fn_dec.push_str(define_function_body(fn_body).as_str());
+            fn_dec_head = fn_header.clone();
+            let body = define_function_body(fn_body);
+            fn_dec = Some(FnDecRepr {
+                head: fn_dec_head,
+                body
+            });
             fn_header.push_str(";");
         }
     }
     file_repr.fn_reps.push(FnRepr{
         fn_header,
-        fn_dec,
+        fn_dec: fn_dec.unwrap(),
     })
 }
-pub fn define_function_body(fn_body: FnBody) -> String {
+pub fn define_function_body(fn_body: FnBody) -> FnBodyRepr {
     let mut body = String::new();
     body.push_str("{");
     match fn_body {

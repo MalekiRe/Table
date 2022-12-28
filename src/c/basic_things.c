@@ -4,6 +4,17 @@ __attribute__((import_module("host"), import_name("exception"))) void exception(
 
 #include "walloc.c"
 
+unsigned int strlen(const char *s)
+{
+    unsigned int count = 0;
+    while(*s!='\0')
+    {
+        count++;
+        s++;
+    }
+    return count;
+}
+
 char* strcpy(char* destination, const char* source)
 {
     // return if no memory is allocated to the destination
@@ -51,6 +62,7 @@ enum TableTypeTag {
 struct TableType {
     enum TableTypeTag table_type_tag;
     union TableTypeUnion table_type_union;
+    int ref_count;
 };
 
 void print_table_type(struct TableType table_type) {
@@ -70,6 +82,32 @@ struct TableType create_big_number(long first, long second) {
     big_number.table_type_union.number = num;
     return big_number;
 };
+
+void inc_ref_count(struct TableType *table_type);
+void dec_ref_count(struct TableType *table_type);
+void free_table_type(struct TableType *table_type);
+
+struct TableType create_string(char *string) {
+    struct TableType string_type;
+    string_type.table_type_tag = STRING;
+    string_type.table_type_union.string = malloc(strlen(string) + 1);
+    strcpy(string_type.table_type_union.string, string);
+    inc_ref_count(&string_type);
+    return string_type;
+}
+
+void inc_ref_count(struct TableType *table_type) {
+    table_type->ref_count++;
+}
+void dec_ref_count(struct TableType *table_type) {
+    table_type->ref_count--;
+    if(table_type->ref_count == 0) {
+       free_table_type(table_type);
+    }
+}
+void free_table_type(struct TableType *table_type) {
+    print("supposed to free here, rn does nothing");
+}
 
 enum TableOperators {
     ADD,
