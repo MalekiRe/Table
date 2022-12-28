@@ -59,11 +59,12 @@ enum TableTypeTag {
     STRING = 2,
 };
 
-struct TableType {
+typedef struct TableType {
     enum TableTypeTag table_type_tag;
     union TableTypeUnion table_type_union;
     int ref_count;
-};
+} TableType;
+
 
 void print_table_type(struct TableType table_type) {
     switch(table_type.table_type_tag) {
@@ -147,3 +148,4 @@ struct TableType table_operator(struct TableType lhs, struct TableType rhs, enum
 int add(int a, int b) {
     return a + b;
 }
+

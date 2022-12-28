@@ -5,5 +5,6 @@
 //}
 //add(5)
 //1 + 2
-
-let a = "hi";
+let x = "yo";
+print(x);
+1

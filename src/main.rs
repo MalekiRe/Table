@@ -3,6 +3,7 @@ mod parser2;
 mod ir2;
 mod wasm;
 mod c;
+mod second_attempt;
 
 use std::fs;
 use chumsky::{Parser, Stream};
@@ -24,15 +25,15 @@ fn main() {
             include_str!("test.tbl").to_string()
         }
     };
-
-    let parser_file = print_parse(src.clone()).unwrap();
+    second_attempt::new_entrypoint();
+    //let parser_file = print_parse(src.clone()).unwrap();
     // let c_file = c::c_compiler::generate_c_file();
     // println!("here");
     // c::c_compiler::compile(c_file);
     // println!("am here");
-    do_full_compilation(parser_file);
-    let file = fs::read("target/add.wasm").unwrap();
-    wasm::wasmtime_runner(file);
+    //do_full_compilation(parser_file);
+    //let file = fs::read("target/add.wasm").unwrap();
+    //wasm::wasmtime_runner(file);
     //let bytes = wasm::wasm_compiler::test();
     //wasm::wasmtime_runner(bytes);
     //println!("{:#?}", ir2::evaluate_file(parser_file));

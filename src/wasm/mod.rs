@@ -21,8 +21,8 @@ pub fn wasmtime_runner(file: Vec<u8>) {
             panic!("exception: {}", c_str.to_str().unwrap())
         }
     }).unwrap();
-    linker.func_wrap("host", "print_num", |mut caller: Caller<'_, ()>, first: i32, second: i32| {
-        print!("big number: {}.{}", first, second);
+    linker.func_wrap("host", "print_num", |mut caller: Caller<'_, ()>, param: i32| {
+        print!("number: {}", param);
     }).unwrap();
     let instance = linker.instantiate(&mut store, &module).unwrap();
     let start = instance.get_typed_func::<(), ()>(&mut store, "_start").unwrap();
