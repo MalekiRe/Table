@@ -13,6 +13,14 @@ pub fn wasmtime_runner(file: Vec<u8>) {
             print!("{}", c_str.to_str().unwrap())
         }
     }).unwrap();
+    linker.func_wrap("host", "exception", |mut caller: Caller<'_, ()>, param: u32| {
+        let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+        unsafe {
+            let ptr = memory.data_ptr(caller).add(param as usize);
+            let c_str = CStr::from_ptr(ptr as *mut c_char);
+            panic!("exception: {}", c_str.to_str().unwrap())
+        }
+    }).unwrap();
     linker.func_wrap("host", "print_num", |mut caller: Caller<'_, ()>, first: i32, second: i32| {
         print!("big number: {}.{}", first, second);
     }).unwrap();

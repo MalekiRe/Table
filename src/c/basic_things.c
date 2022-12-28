@@ -1,5 +1,35 @@
 __attribute__((import_module("host"), import_name("print"))) void print(char*);
 __attribute__((import_module("host"), import_name("print_num"))) void print_num(long, long);
+__attribute__((import_module("host"), import_name("exception"))) void exception(char*);
+
+#include "walloc.c"
+
+char* strcpy(char* destination, const char* source)
+{
+    // return if no memory is allocated to the destination
+    if (destination == NULL) {
+        return NULL;
+    }
+
+    // take a pointer pointing to the beginning of the destination string
+    char *ptr = destination;
+
+    // copy the C-string pointed by source into the array
+    // pointed by destination
+    while (*source != '\0')
+    {
+        *destination = *source;
+        destination++;
+        source++;
+    }
+
+    // include the terminating null character
+    *destination = '\0';
+
+    // the destination is returned by standard `strcpy()`
+    return ptr;
+}
+
 
 struct BigDecimal {
     long first;
@@ -50,12 +80,10 @@ enum TableOperators {
 
 struct TableType table_operator(struct TableType lhs, struct TableType rhs, enum TableOperators table_operator) {
     if(lhs.table_type_tag != NUMBER) {
-        //printf("error not a number in operator exp\n");
-        //exit(-1);
+        exception("error not a number in operator exp");
     }
     if(rhs.table_type_tag != NUMBER) {
-        //printf("error not a number in operator exp\n");
-        //exit(-1);
+        exception("error not a number in operator exp");
     }
     switch (table_operator) {
         case ADD:
