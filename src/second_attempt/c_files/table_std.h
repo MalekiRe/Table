@@ -13,30 +13,45 @@ void print(char*);
 void print_num(int);
 void exception(char*);
 
-typedef enum TypeTag {
+typedef struct VALUE Value;
+
+typedef struct CLOSURE {
+    Value* (*p)();
+    Value** args;
+} Closure;
+
+typedef enum TYPE_TAG {
     NONE,
     STRING,
     NUMBER,
+    CLOSURE,
 } TypeTag;
 
-typedef union TypeVariant {
+typedef union TYPE_VARIANT {
     char* string;
     int number;
+    Closure* closure;
 } TypeVariant;
 
-typedef struct Value {
+typedef struct VALUE {
     TypeVariant variant;
     TypeTag tag;
     int ref_count;
 } Value;
 
 
-Value Number_new(int num);
-Value String_new(const char* str);
+Value* Number_new(int num);
+Value* String_new(const char* str);
+Value* Closure_new(Closure closure);
+Value* None_new();
 
-void ref_dec(Value *value);
-void ref_inc(Value *value);
+void ref_dec(Value* value);
+void ref_inc(Value* value);
 
-void print_value(Value value);
+void print_value(Value* value);
+
+Value* run_closure(Value* closure);
 
 Value test();
+
+void run_test();

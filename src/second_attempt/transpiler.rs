@@ -8,7 +8,7 @@ pub fn transpile(file: ir::File) -> String {
         #include "shared_std.h"
         #include "table_std.h"
 
-        Value _main();
+        Value* _main();
 
         void _start() {
             print_value(_main());
@@ -27,15 +27,25 @@ pub fn entry_point_file(file: ir::File) -> String {
     We will ignore lazy evaluation for now.
     We create a new variable declaration for each implicit/inline declaration.
     We track each implicit and explicit variable declaration.
-    We append a ref_dec for each implicit and explicit variable unless it's returned.
+    We append a ref_dec at the end of the file for each implicit and explicit variable unless it's returned.
     For inline variables we append `_inline` to it.
     For all variables we append `_{TYPE}` to it for the type it is, just for readability
     Just gonna heap allocate everything for now
      */
+    /*
+    Alltodo about closures
+    Okay so, all functions declared should automatically be considered in scope and declared at the beginning of the file.
+    Captured variables are all ref_inc after they are declared by the # of closures they are in.
+    When a function/closure goes out of scope then it ref_dec all it's captured variables.
+    A function that encolses variables can only be called *after* the variable it encloses is defined.
+     */
     String::from(r#"
-        Value _main() {
-            print("hi");
-            return test();
+        Value* _main() {
+            // print_value(Number_new(1));
+            // print_value(String_new("this is a string value"));
+            // return None();
+            run_test();
+            return NULL;
         }
     "#)
 }
