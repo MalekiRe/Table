@@ -53,9 +53,9 @@ pub struct LetStatement {
     exp: BExp,
 }
 pub struct FnDef {
-    identifier: Identifier,
-    args: Vec<Identifier>,
-    body: Block,
+    pub(crate) identifier: Identifier,
+    pub(crate) args: Vec<Identifier>,
+    pub(crate) body: Block,
 }
 // some sort of scoped section
 pub enum Block {

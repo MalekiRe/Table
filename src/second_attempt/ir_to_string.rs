@@ -1,6 +1,7 @@
+use replace_with::replace_with_or_abort;
 use wasmtime::Val;
 use crate::second_attempt::ir;
-use crate::second_attempt::ir::{BinaryOperation, BinaryOperator, Block, Exp, File, Identifier, Value};
+use crate::second_attempt::ir::{BinaryOperation, BinaryOperator, Block, Exp, File, FnDef, Identifier, Value};
 
 pub fn ir_to_str(file: ir::File) -> String {
     FileBuildingContext::from(file).create_string()
@@ -50,18 +51,20 @@ impl Scope {
         );
         self.stack.push(generated_name);
     }
-    pub fn push(self) -> Self {
-        Scope {
-            buffer: "".to_string(),
-            level: self.level+1,
-            num_local: 0,
-            parent: Some(Box::new(self)),
-            stack: vec![],
-            var_declare: "".to_string(),
-            var_decrement: "".to_string()
-        }
+    pub fn push(&mut self) {
+        replace_with_or_abort(self, |self_| {
+            Scope {
+                buffer: "".to_string(),
+                level: self_.level+1,
+                num_local: 0,
+                parent: Some(Box::new(self_)),
+                stack: vec![],
+                var_declare: "".to_string(),
+                var_decrement: "".to_string()
+            }
+        })
     }
-    pub fn pop(self) -> ScopePopType {
+    pub fn pop(&mut self) -> ScopePopType {
         match self.parent {
             None => {
                 ScopePopType::Buffer(self.buffer)
@@ -88,26 +91,56 @@ impl FileBuildingContext {
         this
     }
     fn private_from(&mut self, file: ir::File) {
-        match file {
-            File::Block(block) => {
-                self.block(None, block);
+        let main_fn_def = ir::FnDef {
+            identifier: "_main".to_string(),
+            args: vec![],
+            body: match file {
+                File::Block(block) => {
+                    block
+                }
+                File::None => {
+                    Block::WithoutExp(vec![])
+                }
             }
-            File::None => {}
+        };
+        fn_def(fn_def);
+    }
+    fn fn_def(&mut self, fn_def: ir::FnDef) {
+        let mut scope = Scope::default();
+        match fn_def {
+            FnDef { identifier, args, body } => {
+                self.fn_headers.push(format!("Value* {}({});", identifier, Self::args_to_string(args)));
+                self.block(&mut scope, body);
+                match scope.pop() {
+                    ScopePopType::Scope(_) => panic!("somewhere we ended up pushing a scope we didn't pop!"),
+                    ScopePopType::Buffer(buffer) => {
+                        self.fn_body.push(format!("Value* {}({}){{{}}}", identifier, Self::args_to_string(args), buffer))
+                    }
+                }
+            }
         }
     }
-    fn block(&mut self, scope: Option<&mut Scope>, block: ir::Block) {
-        let mut t = Scope::default();
-        let mut scope = match scope {
-            None => &mut t,
-            Some(scope) => scope,
-        };
+    fn args_to_string(args: Vec<Identifier>) -> String {
+        let mut buffer = String::default();
+        let len = args.len();
+        for (i, arg) in args.into_iter().enumerate() {
+            buffer.push_str("Value* ");
+            buffer.push_str(arg.as_str());
+            if i != len {
+                buffer.push_str(", ");
+            }
+        }
+        buffer
+    }
+    fn block(&mut self, scope: &mut Scope, block: ir::Block) {
+        scope.push();
         match block {
             Block::WithExp(statements, bexp) => {
-                statements.into_iter().for_each(|statement| self.statement(&mut scope, *statement));
-                self.expression(&mut scope, *bexp);
+                statements.into_iter().for_each(|statement| self.statement(scope, *statement));
+                self.expression(scope, *bexp);
             }
             Block::WithoutExp(statements) => {
-                statements.into_iter().for_each(|statement| self.statement(&mut scope, *statement));
+                statements.into_iter().for_each(|statement| self.statement(scope, *statement));
             }
         }
     }
