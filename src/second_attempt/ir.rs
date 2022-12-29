@@ -7,6 +7,7 @@ pub enum Exp {
     FnCall(FnCall),
     BinaryOperation(BinaryOperation),
     Value(Value),
+    Variable(Identifier),
 }
 pub enum BinaryOperator {
     Add,
@@ -19,9 +20,9 @@ pub enum BinaryOperator {
 }
 // TODO:: Remember to lazily evaluate binary operations
 pub struct BinaryOperation {
-    left_hand_side: BExp,
-    operator: BinaryOperator,
-    right_hand_side: BExp,
+    pub left_hand_side: BExp,
+    pub operator: BinaryOperator,
+    pub right_hand_side: BExp,
 }
 pub struct FnCall {
     identifier: Identifier,
@@ -38,7 +39,7 @@ pub enum TableKey {
 }
 pub struct Table(pub Vec<(TableKey, BExp)>);
 pub enum File {
-    Block,
+    Block(Block),
     None,
 }
 pub enum Statement {

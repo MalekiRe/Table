@@ -138,3 +138,21 @@ void run_test() {
     Value* some_closure = Closure_new(my_closure);
     print_value(run_closure(some_closure));
 }
+
+// NUMBER
+    Value* Number_operation(Value* rhs, Value* lhs, enum NumberOperator number_operator) {
+        switch(number_operator) {
+            case ADD:
+                return Number_new(rhs->variant.number+lhs->variant.number);
+            break;
+            case SUBTRACT:
+                exception("subtract not implemented yet");
+            break;
+            case MULTIPLY:
+                exception("multiply not implemented yet");
+            break;
+            case DIVIDE:
+                exception("divide not implemented yet");
+            break;
+        }
+    }

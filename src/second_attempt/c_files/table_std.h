@@ -20,6 +20,7 @@ typedef struct CLOSURE {
     Value** args;
 } Closure;
 
+
 typedef enum TYPE_TAG {
     NONE,
     STRING,
@@ -55,3 +56,12 @@ Value* run_closure(Value* closure);
 Value test();
 
 void run_test();
+
+// Number
+    enum NumberOperator {
+        ADD,
+        SUBTRACT,
+        DIVIDE,
+        MULTIPLY
+    };
+    Value* Number_operation(Value* rhs, Value* lhs, enum NumberOperator number_operator);

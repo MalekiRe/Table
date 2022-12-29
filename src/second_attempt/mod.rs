@@ -7,6 +7,7 @@ use crate::wasm::wasmtime_runner;
 pub mod ir;
 pub mod lexer;
 mod transpiler;
+mod ir_to_string;
 
 pub fn new_entrypoint() {
     let file = transpiler::transpile(File::None);
