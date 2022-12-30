@@ -18,7 +18,7 @@ pub struct FnClosure {
 }
 
 #[derive(Clone, Debug)]
-struct TableValue(pub IndexMap<TableKey, Value>);
+pub struct TableValue(pub IndexMap<TableKey, Value>);
 
 struct ScopeVal {pub scope: Scope, pub val: Value}
 impl ScopeVal {

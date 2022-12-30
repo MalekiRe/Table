@@ -44,18 +44,19 @@ pub enum File {
 }
 pub enum Statement {
     FnDef(FnDef),
-    LetStatement(BExp),
+    LetStatement(LetStatement),
     ExpStatement(BExp),
     Block(Block),
 }
 pub struct LetStatement {
-    identifier: Identifier,
-    exp: BExp,
+    pub identifier: Identifier,
+    pub exp: BExp,
 }
 pub struct FnDef {
     pub(crate) identifier: Identifier,
     pub(crate) args: Vec<Identifier>,
     pub(crate) body: Block,
+    pub(crate) closure_idents: Vec<Identifier>,
 }
 // some sort of scoped section
 pub enum Block {
