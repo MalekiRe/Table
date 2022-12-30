@@ -1,7 +1,7 @@
 use chumsky::{Error, Parser, select};
 use chumsky::prelude::{filter_map, just, Recursive, Simple};
 use crate::parser2::Spanned;
-use crate::second_attempt::ir::{Exp, File, FnCall, Value};
+use crate::second_attempt::ir::{Block, Exp, File, FnCall, LetStatement, Statement, Value};
 use crate::second_attempt::lexer::Token;
 use crate::second_attempt::lexer::BooleanValues;
 
@@ -11,7 +11,39 @@ pub fn parse() -> impl Parser<Token, Exp, Error = Simple<Token>> + Clone {
         _ => Err(Simple::expected_input_found(span, Vec::new(), Some(tok))),
     });
     let mut exp = Recursive::declare();
+    let mut statement = Recursive::declare();
     let mut fn_call = Recursive::declare();
+    let mut block = Recursive::declare();
+    let let_statement = {
+        just(Token::Let).ignore_then(ident.clone())
+            .then_ignore(just(Token::Operator("=".to_string()))).then(exp.clone()).then_ignore(just(Token::Control(';')))
+            .map(|(identifier, exp)|{
+                Statement::LetStatement(LetStatement {
+                    identifier,
+                    exp: Box::new(exp)
+                })
+            })
+    };
+    statement.define({
+        let_statement.or(
+            exp.clone().then_ignore(just(Token::Control(';'))).map(|exp| {
+                Statement::ExpStatement(Box::new(exp))
+            })
+        )
+    });
+    block.define({
+       statement.clone().repeated().then(exp.clone())
+           .map(|(statements, exp)| {
+               Block::WithExp(statements.into_iter().map(|statement| Box::new(statement)).collect(), Box::new(exp))
+           })
+           .or(
+               statement.clone().repeated().at_least(1)
+                   .map(|statements| {
+                       Block::WithoutExp(statements.into_iter().map(|statement| Box::new(statement)).collect())
+                   })
+           )
+
+    });
     exp.define({
         let val = select!{
             Token::Number(n) => Exp::Value(Value::Number(n.parse().unwrap())),

@@ -180,6 +180,7 @@ impl TranslationUnit {
             Exp::BinaryOperation(_) => unimplemented!(),
             Exp::Value(value) => self.value(scope, value),
             Exp::Variable(_) => unimplemented!(),
+            Exp::Block(_, _) => unimplemented!(),
         }
     }
     fn fn_call(&mut self, scope: &mut ScopeHolder, fn_call: ir::FnCall) {

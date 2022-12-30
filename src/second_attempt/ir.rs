@@ -9,6 +9,7 @@ pub enum Exp {
     BinaryOperation(BinaryOperation),
     Value(Value),
     Variable(Identifier),
+    Block(Vec<BStatement>, BExp),
 }
 #[derive(Debug)]
 pub enum BinaryOperator {
@@ -55,7 +56,7 @@ pub enum Statement {
     FnDef(FnDef),
     LetStatement(LetStatement),
     ExpStatement(BExp),
-    Block(Block),
+    Block(Vec<BStatement>),
 }
 #[derive(Debug)]
 pub struct LetStatement {
