@@ -12,12 +12,14 @@ mod ir_to_string_2;
 mod test_transpiler;
 mod c_gen_helper;
 mod ir3;
+mod parser;
 
-pub fn new_entrypoint() {
+pub fn new_entrypoint(string: String) {
     //let file = transpiler::transpile(File::None);
     //compile_files(Some(file.into_bytes()));
     //wasmtime_runner(fs::read("target/output.wasm").unwrap());
-    test_transpiler::test_transpiler();
+    //test_transpiler::test_transpiler();
+    test_transpiler::test_parser(string);
 }
 fn to_paths(str: Vec<&str>) -> Vec<&std::path::Path> {
     str.into_iter().map(|str| {

@@ -3,12 +3,14 @@ pub type BExp = Box<Exp>;
 pub type BStatement = Box<Statement>;
 pub type Identifier = String;
 
+#[derive(Debug)]
 pub enum Exp {
     FnCall(FnCall),
     BinaryOperation(BinaryOperation),
     Value(Value),
     Variable(Identifier),
 }
+#[derive(Debug)]
 pub enum BinaryOperator {
     Add,
     Subtract,
@@ -19,39 +21,48 @@ pub enum BinaryOperator {
     EqualsEquals,
 }
 // TODO:: Remember to lazily evaluate binary operations
+#[derive(Debug)]
 pub struct BinaryOperation {
     pub left_hand_side: BExp,
     pub operator: BinaryOperator,
     pub right_hand_side: BExp,
 }
+#[derive(Debug)]
 pub struct FnCall {
     pub(crate) identifier: Identifier,
     pub(crate) args: Vec<BExp>,
 }
+#[derive(Debug)]
 pub enum Value {
     Number(f64),
     String(String),
     Table(Table),
 }
+#[derive(Debug)]
 pub enum TableKey {
     HasString(String),
     NoString
 }
+#[derive(Debug)]
 pub struct Table(pub Vec<(TableKey, BExp)>);
+#[derive(Debug)]
 pub enum File {
     Block(Block),
     None,
 }
+#[derive(Debug)]
 pub enum Statement {
     FnDef(FnDef),
     LetStatement(LetStatement),
     ExpStatement(BExp),
     Block(Block),
 }
+#[derive(Debug)]
 pub struct LetStatement {
     pub identifier: Identifier,
     pub exp: BExp,
 }
+#[derive(Debug)]
 pub struct FnDef {
     pub(crate) identifier: Identifier,
     pub(crate) args: Vec<Identifier>,
@@ -59,6 +70,7 @@ pub struct FnDef {
     pub(crate) closure_idents: Vec<Identifier>,
 }
 // some sort of scoped section
+#[derive(Debug)]
 pub enum Block {
     WithExp(Vec<BStatement>, BExp),
     WithoutExp(Vec<BStatement>),

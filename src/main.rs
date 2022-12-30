@@ -25,7 +25,7 @@ fn main() {
             include_str!("test.tbl").to_string()
         }
     };
-    second_attempt::new_entrypoint();
+    second_attempt::new_entrypoint(src);
     //let parser_file = print_parse(src.clone()).unwrap();
     // let c_file = c::c_compiler::generate_c_file();
     // println!("here");

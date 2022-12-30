@@ -1,10 +1,1 @@
-//let a = 1;
-//fn add(c) {
-//    let b = 2;
-//    a + b + c
-//}
-//add(5)
-//1 + 2
-let x = "yo";
-print(x);
-1
+my_function(1, {2}, my_thing(1, 4, something))

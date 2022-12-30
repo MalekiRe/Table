@@ -1,5 +1,7 @@
 use crate::second_attempt::ir::{BinaryOperation, BinaryOperator, Block, Exp, File, FnCall, LetStatement, Statement, Value};
-use crate::second_attempt::{ir, ir3, ir_to_string_2};
+use crate::second_attempt::{ir, ir3, ir_to_string_2, parser};
+use chumsky::{Parser, Stream};
+use crate::second_attempt::lexer::lexer;
 
 pub(crate) fn test_transpiler() {
     // let file = File::Block(Block::WithExp(vec![], Box::new(Exp::Value(Value::String(String::from("yoo"))))));
@@ -47,4 +49,10 @@ pub(crate) fn test_transpiler() {
     ]));
     let generated = ir3::TranslationUnit::gen_from_file(file);
     println!("{}", generated);
+}
+pub(crate) fn test_parser(src: String) {
+    let (tokens, errors) = lexer().parse_recovery(src.clone());
+    let len = src.chars().count();
+    let stream = Stream::from_iter(len..len + 1, tokens.unwrap().into_iter());
+    println!("{:#?}", parser::parse().parse(stream).unwrap());
 }
