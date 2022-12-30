@@ -12,10 +12,10 @@ pub fn generate_inline_identifier(level: u32, num_local: &mut u32) -> CIdentifie
     name
 }
 pub fn generate_function_identifier(fn_name: TIdentifier, level: u32) -> CIdentifier {
-    format!("_function_{}", level)
+    format!("_{}_{}", fn_name, level)
 }
 pub fn generate_variable_identifier(variable_name: TIdentifier, level: u32) -> CIdentifier {
-    format!("_variable_{}", level)
+    format!("_{}_{}", variable_name, level)
 }
 pub fn generate_binary_operation(identifier: CIdentifier, lhs: Buffer, rhs: Buffer, operator: String) -> Buffer {
     format!("Value* {}  = Number_operator({}, {}, {});", identifier, lhs, rhs, operator)
@@ -59,7 +59,11 @@ pub fn generate_closure_declaration(inline_identifier: CIdentifier, fn_identifie
 
 pub fn args_to_string(args: Vec<TIdentifier>) -> String {
     let mut buffer = String::default();
+    buffer.push_str("Value** args");
     let len = args.len();
+    if len != 0 {
+        buffer.push_str(",");
+    }
     for (i, arg) in args.into_iter().enumerate() {
         buffer.push_str("Value* ");
         buffer.push_str(arg.as_str());

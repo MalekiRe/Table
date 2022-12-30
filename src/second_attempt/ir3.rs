@@ -1,7 +1,7 @@
 use chumsky::chain::Chain;
 use crate::second_attempt::c_gen_helper::*;
 use crate::second_attempt::ir;
-use crate::second_attempt::ir::{Block, Exp, File, FnDef, LetStatement, Statement, Value};
+use crate::second_attempt::ir::{Block, Exp, File, FnCall, FnDef, LetStatement, Statement, Value};
 
 #[derive(Default)]
 pub struct Scope {
@@ -102,7 +102,7 @@ impl ScopeHolder {
     }
     pub fn find_var_in_scope(&self, identifier: TIdentifier) -> Option<CIdentifier> {
         for (i, scope) in self.scopes.iter().enumerate() {
-            let new_ident = format!("{}_{}", i, identifier.clone());
+            let new_ident = format!("_{}_{}", identifier.clone(), i);
             if scope.var_in_scope.contains(&new_ident) {
                 return Some(new_ident);
             }
@@ -174,10 +174,17 @@ impl TranslationUnit {
     }
     fn expression(&mut self, scope: &mut ScopeHolder, exp: ir::Exp) {
         match exp {
-            Exp::FnCall(_) => unimplemented!(),
+            Exp::FnCall(fn_call) => self.fn_call(scope, fn_call),
             Exp::BinaryOperation(_) => unimplemented!(),
             Exp::Value(value) => self.value(scope, value),
             Exp::Variable(_) => unimplemented!(),
+        }
+    }
+    fn fn_call(&mut self, scope: &mut ScopeHolder, fn_call: ir::FnCall) {
+        match fn_call {
+            FnCall { identifier, args } => {
+                unimplemented!()
+            }
         }
     }
     fn value(&mut self, scope: &mut ScopeHolder, value: ir::Value) {
@@ -210,16 +217,19 @@ impl TranslationUnit {
                 let fn_identifier = generate_function_identifier(identifier, scope.get_level());
                 let fn_header = generate_function_header(fn_identifier.clone(), args.clone());
                 let mut fn_scope = ScopeHolder::new();
-                //TODO: Do Closures
+                let mut new_closure_idents = vec![];
+                for closure_ident in &closure_idents {
+                    new_closure_idents.push(scope.find_var_in_scope(closure_ident.clone()).unwrap());
+                }
+                let inline_dec = scope.generate_inline_identifier();
+                let closure_generation = generate_closure_declaration(inline_dec, fn_identifier.clone(), new_closure_idents);
+                for (i, closure_ident) in closure_idents.iter().enumerate() {
+                    let id = fn_scope.generate_variable_identifier(closure_ident.clone());
+                    fn_scope.var_declaration(id, format!("args[{}]", i));
+                }
                 self.unscoped_block(&mut fn_scope, body);
                 let fn_body = fn_scope.generate_string();
                 let fn_def = generate_function_def(fn_identifier.clone(), args, fn_body);
-                let mut new_closure_idents = vec![];
-                for closure_ident in closure_idents {
-                    new_closure_idents.push(scope.find_var_in_scope(closure_ident).unwrap());
-                }
-                let inline_dec = scope.generate_inline_identifier();
-                let closure_generation = generate_closure_declaration(inline_dec, fn_identifier, new_closure_idents);
                 scope.push_buffer(closure_generation);
                 self.c_fn_defs.push(fn_def);
                 self.c_fn_headers.push(fn_header);
