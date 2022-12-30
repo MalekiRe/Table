@@ -95,7 +95,9 @@ impl ScopeHolder {
         generate_inline_identifier(self.get_level(), self.get_num_local())
     }
     pub fn generate_function_identifier(&mut self, identifier: TIdentifier) -> CIdentifier {
-        generate_function_identifier(identifier, self.get_level())
+        let ident = generate_function_identifier(identifier, self.get_level());
+        self.get_mut().var_in_scope.push(ident.clone());
+        ident
     }
     pub fn generate_variable_identifier(&mut self, identifier: TIdentifier) -> CIdentifier {
         generate_variable_identifier(identifier, self.get_level())
@@ -183,7 +185,19 @@ impl TranslationUnit {
     fn fn_call(&mut self, scope: &mut ScopeHolder, fn_call: ir::FnCall) {
         match fn_call {
             FnCall { identifier, args } => {
-                unimplemented!()
+                let arg_len = args.len();
+                for arg in args {
+                    self.expression(scope, *arg);
+                }
+                let inline_ret = scope.generate_inline_identifier();
+                let closure_name = scope.find_var_in_scope(identifier).unwrap();
+                let mut arg_idents = vec![];
+                for i in 0..arg_len {
+                    arg_idents.push(scope.pop_identifier());
+                }
+                let buffer = format!("(*{}->variant.closure->p)({})", closure_name, call_args_to_string(arg_idents));
+                scope.var_declaration(inline_ret.clone(), buffer);
+                scope.push_identifier(inline_ret);
             }
         }
     }
@@ -196,7 +210,10 @@ impl TranslationUnit {
         match statement {
             Statement::FnDef(fn_def) => self.fn_def(scope, fn_def),
             Statement::LetStatement(let_statement) => self.let_statement(scope, let_statement),
-            Statement::ExpStatement(_) => unimplemented!(),
+            Statement::ExpStatement(exp_statement) => {
+                self.expression(scope, *exp_statement);
+                scope.stack.pop().unwrap();
+            },
             Statement::Block(_) => unimplemented!(),
         }
     }
@@ -214,7 +231,7 @@ impl TranslationUnit {
         match fn_definition {
             FnDef { identifier, args, body, closure_idents } => {
                 let args = args_to_string(args);
-                let fn_identifier = generate_function_identifier(identifier, scope.get_level());
+                let fn_identifier = scope.generate_function_identifier(identifier);
                 let fn_header = generate_function_header(fn_identifier.clone(), args.clone());
                 let mut fn_scope = ScopeHolder::new();
                 let mut new_closure_idents = vec![];
@@ -230,7 +247,7 @@ impl TranslationUnit {
                 self.unscoped_block(&mut fn_scope, body);
                 let fn_body = fn_scope.generate_string();
                 let fn_def = generate_function_def(fn_identifier.clone(), args, fn_body);
-                scope.push_buffer(closure_generation);
+                scope.get_mut().var_declare.push_str(closure_generation.as_str());
                 self.c_fn_defs.push(fn_def);
                 self.c_fn_headers.push(fn_header);
             }

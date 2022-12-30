@@ -67,7 +67,22 @@ pub fn args_to_string(args: Vec<TIdentifier>) -> String {
     for (i, arg) in args.into_iter().enumerate() {
         buffer.push_str("Value* ");
         buffer.push_str(arg.as_str());
-        if i != len {
+        if i != len-1 {
+            buffer.push_str(", ");
+        }
+    }
+    buffer
+}
+pub fn call_args_to_string(args: Vec<CIdentifier>) -> String {
+    let mut buffer = String::default();
+    buffer.push_str("closure->variant.closure->args");
+    let len = args.len();
+    if len != 0 {
+        buffer.push_str(",");
+    }
+    for (i, arg) in args.into_iter().enumerate() {
+        buffer.push_str(arg.as_str());
+        if i != len-1 {
             buffer.push_str(", ");
         }
     }

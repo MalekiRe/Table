@@ -25,8 +25,8 @@ pub struct BinaryOperation {
     pub right_hand_side: BExp,
 }
 pub struct FnCall {
-    identifier: Identifier,
-    args: Vec<BExp>,
+    pub(crate) identifier: Identifier,
+    pub(crate) args: Vec<BExp>,
 }
 pub enum Value {
     Number(f64),
