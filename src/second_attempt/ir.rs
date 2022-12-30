@@ -69,6 +69,7 @@ pub struct FnDef {
     pub(crate) args: Vec<Identifier>,
     pub(crate) body: Block,
     pub(crate) closure_idents: Vec<Identifier>,
+    pub(crate) exported: bool,
 }
 // some sort of scoped section
 #[derive(Debug)]

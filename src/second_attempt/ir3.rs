@@ -230,7 +230,7 @@ impl TranslationUnit {
     }
     fn fn_def(&mut self, scope: &mut ScopeHolder, fn_definition: FnDef) {
         match fn_definition {
-            FnDef { identifier, args, body, closure_idents } => {
+            FnDef { identifier, args, body, closure_idents, exported } => {
                 let args = args_to_string(args);
                 let fn_identifier = scope.generate_function_identifier(identifier);
                 let fn_header = generate_function_header(fn_identifier.clone(), args.clone());

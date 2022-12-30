@@ -20,6 +20,7 @@ pub enum Token {
     Match,
     Switch,
     Boolean(BooleanValues),
+    Capture,
 }
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum BooleanValues {
@@ -51,6 +52,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "true" => Token::Boolean(BooleanValues::True),
         "false" => Token::Boolean(BooleanValues::False),
         "export" => Token::Export,
+        "capture" => Token::Capture,
         "_" => Token::InferenceIdentifier,
         _ => Token::Identifier(ident)
     });
@@ -91,6 +93,7 @@ impl fmt::Display for Token {
                     BooleanValues::False => write!(f, "false"),
                 }
             }
+            Token::Capture => write!(f, "capture"),
         }
     }
 }

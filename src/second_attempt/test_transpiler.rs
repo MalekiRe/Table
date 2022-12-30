@@ -2,6 +2,7 @@ use crate::second_attempt::ir::{BinaryOperation, BinaryOperator, Block, Exp, Fil
 use crate::second_attempt::{ir, ir3, ir_to_string_2, parser};
 use chumsky::{Parser, Stream};
 use crate::second_attempt::lexer::lexer;
+use crate::second_attempt::parser::do_err_messages;
 
 pub(crate) fn test_transpiler() {
     // let file = File::Block(Block::WithExp(vec![], Box::new(Exp::Value(Value::String(String::from("yoo"))))));
@@ -32,7 +33,8 @@ pub(crate) fn test_transpiler() {
         identifier: "my_function".to_string(),
         args: vec!["foo".to_string()],
         body: Block::WithExp(vec![], value_exp),
-        closure_idents: vec!["my_var".to_string()]
+        closure_idents: vec!["my_var".to_string()],
+        exported: false
     }));
     let fn_call = Box::new(Exp::FnCall(
         FnCall {
@@ -54,5 +56,7 @@ pub(crate) fn test_parser(src: String) {
     let (tokens, errors) = lexer().parse_recovery(src.clone());
     let len = src.chars().count();
     let stream = Stream::from_iter(len..len + 1, tokens.unwrap().into_iter());
-    println!("{:#?}", parser::parse().parse(stream).unwrap());
+    let (ast, parse_errors) = parser::parse().parse_recovery(stream);
+    do_err_messages(errors, parse_errors, src.clone());
+    println!("{:#?}", ast.unwrap());
 }

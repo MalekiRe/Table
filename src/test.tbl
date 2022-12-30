@@ -1,1 +1,6 @@
-my_function(1, {2}, my_thing(1, 4, something))
+let y = 1;
+my_function(1, {2}, my_thing(1, 4, something));
+fn my_function(a, b, c)
+capture y {
+    1
+}
