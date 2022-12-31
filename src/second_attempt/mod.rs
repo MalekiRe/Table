@@ -2,6 +2,8 @@ use std::fs;
 use crate::main;
 use crate::second_attempt::ir::File;
 use crate::second_attempt::transpiler::{compile_c_file, compile_c_files};
+use crate::second_attempt::vm::bytecode::Value;
+use crate::second_attempt::vm::Vm;
 use crate::wasm::wasmtime_runner;
 
 pub mod ir;
@@ -13,11 +15,13 @@ mod test_transpiler;
 mod c_gen_helper;
 mod ir3;
 mod parser;
+mod vm;
 
 pub fn new_entrypoint(string: String) {
-    let file = prefix_setup_file(string);
-    compile_files(Some(file.into_bytes()));
-    wasmtime_runner(fs::read("target/output.wasm").unwrap());
+    //let file = prefix_setup_file(string);
+    //compile_files(Some(file.into_bytes()));
+    //wasmtime_runner(fs::read("target/output.wasm").unwrap());
+    vm::test_vm();
 }
 fn to_paths(str: Vec<&str>) -> Vec<&std::path::Path> {
     str.into_iter().map(|str| {
