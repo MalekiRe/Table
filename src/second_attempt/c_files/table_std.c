@@ -63,6 +63,12 @@ void print_value(Value* value) {
             break;
         case CLOSURE:
             print("Type: Closure");
+            break;
+        case BOOLEAN:
+            print("Type: Boolean, Value: ");
+            print_boolean(value->variant.boolean);
+            print("\n");
+            break;
     }
 }
 
@@ -95,6 +101,13 @@ Value* Closure_new(Closure closure) {
     new_closure->variant.closure->p = closure.p;
     new_closure->variant.closure->args = closure.args;
     return new_closure;
+}
+Value* Boolean_new(bool boolean) {
+    Value* new_boolean = malloc(sizeof(Value));
+    new_boolean->tag = BOOLEAN;
+    new_boolean->variant.boolean = boolean;
+    new_boolean->ref_count = 1;
+    return new_boolean;
 }
 Value* None_new() {
     Value* none = malloc(sizeof(Value));

@@ -101,10 +101,10 @@ pub fn parse() -> impl Parser<Token, File, Error = Simple<Token>> + Clone {
             Token::Identifier(string) => Exp::Variable(string)
         }.labelled("identifier");
         let atom = val
-            .or(exp.clone().delimited_by(just(Token::Control('{')), just(Token::Control('}'))))
+            //.or(exp.clone().delimited_by(just(Token::Control('{')), just(Token::Control('}'))))
             .or(fn_call.clone())
             .or(identifier);
-        //let braced_exp = exp.clone().delimited_by(just(Token::Control('{')), just(Token::Control('}')));
+
         atom.or(exp_block)
     });
     fn_call.define({

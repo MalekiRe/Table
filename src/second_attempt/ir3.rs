@@ -4,7 +4,7 @@ use crate::second_attempt::c_gen_helper::*;
 use crate::second_attempt::ir;
 use crate::second_attempt::ir::{Block, Exp, File, FnCall, FnDef, LetStatement, NormalFnDef, Statement, Value};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Scope {
     var_declare: Buffer,
     var_in_scope: Vec<CIdentifier>,
@@ -39,6 +39,7 @@ impl Scope {
         }
     }
 }
+#[derive(Debug)]
 pub struct ScopeHolder {
     scopes: Vec<Scope>,
     stack: Vec<CIdentifier>,
@@ -164,6 +165,7 @@ impl TranslationUnit {
                 let last_var = scope.stack.last().unwrap().clone();
                 scope.var_increment(last_var.clone());
                 if scope.len() == 1 {
+                    println!("is a return line: {:#?}", scope);
                     scope.push_end_buffer(generate_return_line(last_var));
                 }
             }
@@ -186,7 +188,9 @@ impl TranslationUnit {
                 let var = scope.find_var_in_scope(variable).unwrap();
                 scope.push_identifier(var);
             },
-            Exp::Block(_, _) => unimplemented!(),
+            Exp::Block(statements, exp) => {
+                self.block(scope, Block::WithExp(statements, exp));
+            }
         }
     }
     fn fn_call(&mut self, scope: &mut ScopeHolder, fn_call: ir::FnCall) {
