@@ -1,4 +1,5 @@
 use chumsky::chain::Chain;
+use lang_c::ast::Identifier;
 use crate::second_attempt::c_gen_helper::*;
 use crate::second_attempt::ir;
 use crate::second_attempt::ir::{Block, Exp, File, FnCall, FnDef, LetStatement, NormalFnDef, Statement, Value};
@@ -181,7 +182,10 @@ impl TranslationUnit {
             Exp::FnCall(fn_call) => self.fn_call(scope, fn_call),
             Exp::BinaryOperation(_) => unimplemented!(),
             Exp::Value(value) => self.value(scope, value),
-            Exp::Variable(_) => unimplemented!(),
+            Exp::Variable(variable) => {
+                let var = scope.find_var_in_scope(variable).unwrap();
+                scope.push_identifier(var);
+            },
             Exp::Block(_, _) => unimplemented!(),
         }
     }
@@ -233,7 +237,8 @@ impl TranslationUnit {
     fn normal_fn_def(&mut self, scope: &mut ScopeHolder, normal_fn_def: NormalFnDef) {
         match normal_fn_def {
             NormalFnDef { identifier, args, body, closure_idents, exported } => {
-                let args = args_to_string(args);
+                let original_args = args.clone();
+                let args = args_to_string(args, scope.get_level());
                 let fn_identifier = scope.generate_function_identifier(identifier);
                 let fn_header = generate_function_header(fn_identifier.clone(), args.clone());
                 let mut fn_scope = ScopeHolder::new();
@@ -246,6 +251,10 @@ impl TranslationUnit {
                 for (i, closure_ident) in closure_idents.iter().enumerate() {
                     let id = fn_scope.generate_variable_identifier(closure_ident.clone());
                     fn_scope.var_declaration(id, format!("args[{}]", i));
+                }
+                for arg in original_args {
+                    let ident = fn_scope.generate_variable_identifier(arg);
+                    fn_scope.get_mut().var_in_scope.push(ident)
                 }
                 self.unscoped_block(&mut fn_scope, body);
                 let fn_body = fn_scope.generate_string();

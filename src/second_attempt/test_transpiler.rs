@@ -61,6 +61,6 @@ pub(crate) fn test_parser(src: String) -> String {
     let ast = ast.unwrap();
     //println!("{:#?}", ast);
     let generated = ir3::TranslationUnit::gen_from_file(ast);
-    //println!("{}", generated);
+    println!("{}", generated);
     generated
 }

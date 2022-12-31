@@ -57,7 +57,7 @@ pub fn generate_closure_declaration(inline_identifier: CIdentifier, fn_identifie
     buffer
 }
 
-pub fn args_to_string(args: Vec<TIdentifier>) -> String {
+pub fn args_to_string(args: Vec<TIdentifier>, level: u32) -> String {
     let mut buffer = String::default();
     buffer.push_str("Value** args");
     let len = args.len();
@@ -65,8 +65,7 @@ pub fn args_to_string(args: Vec<TIdentifier>) -> String {
         buffer.push_str(",");
     }
     for (i, arg) in args.into_iter().enumerate() {
-        buffer.push_str("Value* ");
-        buffer.push_str(arg.as_str());
+        buffer.push_str(format!("Value* _{}_{}", arg, level).as_str());
         if i != len-1 {
             buffer.push_str(", ");
         }
