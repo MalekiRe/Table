@@ -73,9 +73,9 @@ pub fn args_to_string(args: Vec<TIdentifier>) -> String {
     }
     buffer
 }
-pub fn call_args_to_string(args: Vec<CIdentifier>) -> String {
+pub fn call_args_to_string(closure_name: String, args: Vec<CIdentifier>) -> String {
     let mut buffer = String::default();
-    buffer.push_str("closure->variant.closure->args");
+    buffer.push_str(format!("{}->variant.closure->args", closure_name).as_str());
     let len = args.len();
     if len != 0 {
         buffer.push_str(",");

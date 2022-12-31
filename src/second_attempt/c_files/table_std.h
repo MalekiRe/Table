@@ -46,8 +46,10 @@ Value* String_new(const char* str);
 Value* Closure_new(Closure closure);
 Value* None_new();
 
-void ref_dec(Value* value);
-void ref_inc(Value* value);
+Value* None();
+
+void decrement(Value* value);
+void increment(Value* value);
 
 void print_value(Value* value);
 

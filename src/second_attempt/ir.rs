@@ -64,13 +64,24 @@ pub struct LetStatement {
     pub exp: BExp,
 }
 #[derive(Debug)]
-pub struct FnDef {
+pub struct NormalFnDef {
     pub(crate) identifier: Identifier,
     pub(crate) args: Vec<Identifier>,
     pub(crate) body: Block,
     pub(crate) closure_idents: Vec<Identifier>,
     pub(crate) exported: bool,
 }
+#[derive(Debug)]
+pub struct ImportedFnDef {
+    pub(crate) identifier: Identifier,
+    pub(crate) args: Vec<Identifier>,
+}
+#[derive(Debug)]
+pub enum FnDef {
+    FnDef(NormalFnDef),
+    Imported(ImportedFnDef)
+}
+
 // some sort of scoped section
 #[derive(Debug)]
 pub enum Block {

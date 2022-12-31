@@ -15,6 +15,7 @@ pub enum Token {
     Control(char),
     InferenceIdentifier,
     Export,
+    Import,
     Fn,
     Let,
     Match,
@@ -53,6 +54,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "false" => Token::Boolean(BooleanValues::False),
         "export" => Token::Export,
         "capture" => Token::Capture,
+        "import" => Token::Import,
         "_" => Token::InferenceIdentifier,
         _ => Token::Identifier(ident)
     });
@@ -94,6 +96,7 @@ impl fmt::Display for Token {
                 }
             }
             Token::Capture => write!(f, "capture"),
+            Token::Import => write!(f, "import"),
         }
     }
 }

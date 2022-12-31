@@ -2,11 +2,11 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::{Error, Parser, select};
 use chumsky::prelude::{empty, end, filter_map, just, Recursive, Simple};
 use crate::parser2::Spanned;
-use crate::second_attempt::ir::{Block, Exp, File, FnCall, FnDef, LetStatement, Statement, Value};
+use crate::second_attempt::ir::{Block, Exp, File, FnCall, FnDef, ImportedFnDef, LetStatement, NormalFnDef, Statement, Value};
 use crate::second_attempt::lexer::Token;
 use crate::second_attempt::lexer::BooleanValues;
 
-pub fn parse() -> impl Parser<Token, Block, Error = Simple<Token>> + Clone {
+pub fn parse() -> impl Parser<Token, File, Error = Simple<Token>> + Clone {
     let ident = filter_map(|span, tok| match tok {
         Token::Identifier(ident) => Ok(ident.clone()),
         _ => Err(Simple::expected_input_found(span, Vec::new(), Some(tok))),
@@ -30,20 +30,34 @@ pub fn parse() -> impl Parser<Token, Block, Error = Simple<Token>> + Clone {
         let capture_clause = just(Token::Capture).ignore_then(
             ident.clone().separated_by(just(Token::Control(','))).allow_trailing()
         );
-        just(Token::Fn)
-            .ignore_then(ident.clone())
+        just(Token::Export).repeated().at_most(1).then_ignore(
+        just(Token::Fn))
+            .then(ident.clone())
             .then(fn_def_args.clone().delimited_by(just(Token::Control('(')), just(Token::Control(')'))))
             .then(capture_clause)
             .then(block.clone())
-            .map(|(((identifier, args), capture_clause), block)| {
-                FnDef {
+            .map(|((((export, identifier), args), capture_clause), block)| {
+                FnDef::FnDef(NormalFnDef{
                     identifier,
                     args,
                     body: block,
                     closure_idents: capture_clause,
-                    exported: false
-                }
+                    exported: export.len() == 1
+                })
             })
+            .or(
+                just(Token::Import)
+                    .ignore_then(just(Token::Fn))
+                    .ignore_then(ident.clone())
+                    .then(fn_def_args.clone().delimited_by(just(Token::Control('(')), just(Token::Control(')'))))
+                    .then_ignore(just(Token::Control(';')))
+                    .map(|(identifier, args)|{
+                        FnDef::Imported(ImportedFnDef {
+                            identifier,
+                            args
+                        })
+                    })
+            )
     };
     statement.define({
         let statement_block = statement.clone().repeated().delimited_by(just(Token::Control('{')), just(Token::Control('}')))
@@ -105,8 +119,12 @@ pub fn parse() -> impl Parser<Token, Block, Error = Simple<Token>> + Clone {
         });
         fn_call
     });
-
-    block.then_ignore(end())
+    let file = {
+        block.clone().then_ignore(end()).map(|block| {
+            File::Block(block)
+        }).or(end().map(|_| File::None))
+    };
+    file
 }
 
 

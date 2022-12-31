@@ -1,6 +1,7 @@
 let y = 1;
-my_function(1, {2}, my_thing(1, 4, something));
 fn my_function(a, b, c)
-capture y {
+    capture y
+    {
     1
 }
+my_function(1, 2, 3)

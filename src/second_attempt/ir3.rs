@@ -1,7 +1,7 @@
 use chumsky::chain::Chain;
 use crate::second_attempt::c_gen_helper::*;
 use crate::second_attempt::ir;
-use crate::second_attempt::ir::{Block, Exp, File, FnCall, FnDef, LetStatement, Statement, Value};
+use crate::second_attempt::ir::{Block, Exp, File, FnCall, FnDef, LetStatement, NormalFnDef, Statement, Value};
 
 #[derive(Default)]
 pub struct Scope {
@@ -80,7 +80,8 @@ impl ScopeHolder {
         self.get_mut().var_decrement(generate_decrement(identifier))
     }
     pub fn var_declaration(&mut self, identifier: CIdentifier, rhs: Buffer) {
-        self.get_mut().var_declare(generate_variable_declaration(identifier.clone(), rhs), identifier)
+        self.get_mut().var_declare(generate_variable_declaration(identifier.clone(), rhs), identifier.clone());
+        self.var_decrement(identifier);
     }
     pub fn push_buffer(&mut self, buffer: Buffer) {
         self.get_mut().buffer(buffer);
@@ -97,6 +98,7 @@ impl ScopeHolder {
     pub fn generate_function_identifier(&mut self, identifier: TIdentifier) -> CIdentifier {
         let ident = generate_function_identifier(identifier, self.get_level());
         self.get_mut().var_in_scope.push(ident.clone());
+        self.var_decrement(ident.clone());
         ident
     }
     pub fn generate_variable_identifier(&mut self, identifier: TIdentifier) -> CIdentifier {
@@ -196,7 +198,7 @@ impl TranslationUnit {
                 for i in 0..arg_len {
                     arg_idents.push(scope.pop_identifier());
                 }
-                let buffer = format!("(*{}->variant.closure->p)({})", closure_name, call_args_to_string(arg_idents));
+                let buffer = format!("(*{}->variant.closure->p)({})", closure_name.clone(), call_args_to_string(closure_name.clone(),arg_idents));
                 scope.var_declaration(inline_ret.clone(), buffer);
                 scope.push_identifier(inline_ret);
             }
@@ -228,9 +230,9 @@ impl TranslationUnit {
             }
         }
     }
-    fn fn_def(&mut self, scope: &mut ScopeHolder, fn_definition: FnDef) {
-        match fn_definition {
-            FnDef { identifier, args, body, closure_idents, exported } => {
+    fn normal_fn_def(&mut self, scope: &mut ScopeHolder, normal_fn_def: NormalFnDef) {
+        match normal_fn_def {
+            NormalFnDef { identifier, args, body, closure_idents, exported } => {
                 let args = args_to_string(args);
                 let fn_identifier = scope.generate_function_identifier(identifier);
                 let fn_header = generate_function_header(fn_identifier.clone(), args.clone());
@@ -253,5 +255,11 @@ impl TranslationUnit {
                 self.c_fn_headers.push(fn_header);
             }
         };
+    }
+    fn fn_def(&mut self, scope: &mut ScopeHolder, fn_definition: FnDef) {
+        match fn_definition {
+            FnDef::FnDef(normal_fn_def) => self.normal_fn_def(scope, normal_fn_def),
+            FnDef::Imported(_) => unimplemented!(),
+        }
     }
 }

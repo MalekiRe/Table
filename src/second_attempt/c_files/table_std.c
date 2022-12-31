@@ -103,13 +103,17 @@ Value* None_new() {
     return none;
 }
 
-void ref_dec(Value* value) {
+Value* None() {
+    return None_new();
+}
+
+void decrement(Value* value) {
     value->ref_count -= 1;
     if(value->ref_count == 0) {
         print("should free this value here but not implemented yet\n");
     }
 }
-void ref_inc(Value* value) {
+void increment(Value* value) {
     value->ref_count += 1;
 }
 

@@ -15,16 +15,25 @@ mod ir3;
 mod parser;
 
 pub fn new_entrypoint(string: String) {
-    //let file = transpiler::transpile(File::None);
-    //compile_files(Some(file.into_bytes()));
-    //wasmtime_runner(fs::read("target/output.wasm").unwrap());
-    //test_transpiler::test_transpiler();
-    test_transpiler::test_parser(string);
+    let file = prefix_setup_file(string);
+    compile_files(Some(file.into_bytes()));
+    wasmtime_runner(fs::read("target/output.wasm").unwrap());
 }
 fn to_paths(str: Vec<&str>) -> Vec<&std::path::Path> {
     str.into_iter().map(|str| {
         std::path::Path::new(str)
     }).collect()
+}
+fn prefix_setup_file(file: String) -> String {
+    let mut buffer = String::default();
+    let file = test_transpiler::test_parser(file);
+    buffer.push_str(file.as_str());
+    buffer.push_str(r#"
+    void _start() {
+        print_value(_main());
+    }
+    "#);
+    buffer
 }
 fn compile_files(main_file: Option<Vec<u8>>) {
     use std::path::Path;
