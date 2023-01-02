@@ -16,12 +16,13 @@ mod c_gen_helper;
 mod ir3;
 mod parser;
 mod vm;
+mod vm2;
 
 pub fn new_entrypoint(string: String) {
     //let file = prefix_setup_file(string);
     //compile_files(Some(file.into_bytes()));
     //wasmtime_runner(fs::read("target/output.wasm").unwrap());
-    vm::test_vm();
+    vm2::test_vm();
 }
 fn to_paths(str: Vec<&str>) -> Vec<&std::path::Path> {
     str.into_iter().map(|str| {

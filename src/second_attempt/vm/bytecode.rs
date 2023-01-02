@@ -1,4 +1,3 @@
-use core::panicking::panic;
 use indexmap::IndexMap;
 use crate::second_attempt::vm::bytecode::Bytecode::{Constant, PopLocal, PushLocal, Return, TestTruthy};
 
@@ -29,7 +28,7 @@ pub enum Bytecode {
     Divide,
     Print,
 }
-#[derive(Clone)]
+/*#[derive(Clone)]
 pub enum SingleByte {
     Return = 0,
     Copy = 1,
@@ -58,6 +57,7 @@ pub enum USizeByte {
 pub enum ValueByte {
     Constant(Value),
 }
+ */
 #[derive(Copy, Clone, Debug)]
 pub enum Value {
     Number(i64),
