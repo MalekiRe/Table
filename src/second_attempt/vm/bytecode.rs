@@ -1,9 +1,12 @@
+use core::panicking::panic;
+use indexmap::IndexMap;
+use crate::second_attempt::vm::bytecode::Bytecode::{Constant, PopLocal, PushLocal, Return, TestTruthy};
+
 pub type TIdentifier = String;
 
 #[derive(Clone)]
 pub enum Bytecode {
     Return,
-    Print,
     Constant(Value),
     GetLocal(usize),
     SetLocal(usize),
@@ -17,18 +20,60 @@ pub enum Bytecode {
     TestGreater,
     TestGreaterEqual,
     TestNot,
+    Inject,
     Jump(usize),
     JumpIf(usize),
     Add,
     Subtract,
     Multiply,
     Divide,
+    Print,
+}
+#[derive(Clone)]
+pub enum SingleByte {
+    Return = 0,
+    Copy = 1,
+    PushLocal = 2,
+    PopLocal = 3,
+    TestTruthy = 4,
+    TestEqual = 5,
+    TestLess = 6,
+    TestLessEqual = 7,
+    TestGreater = 8,
+    TestGreaterEqual = 9,
+    TestNot = 10,
+    Add = 11,
+    Subtract = 12,
+    Multiply = 13,
+    Divide = 14,
+    Print = 15,
+}
+pub enum USizeByte {
+    GetLocal(usize),
+    SetLocal(usize),
+    Jump(usize),
+    JumpIf(usize),
+}
+#[derive(Copy)]
+pub enum ValueByte {
+    Constant(Value),
 }
 #[derive(Copy, Clone, Debug)]
 pub enum Value {
     Number(i64),
     Boolean(bool),
+    Table(usize),
     Nil,
+}
+pub type TableStack = Vec<Table>;
+// TODO: make a table an enum that has a key value map but also an array that's just a slice
+pub enum Table {
+    Map(IndexMap<TableKey, Value>),
+}
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+pub enum TableKey {
+    Identifier(String, usize),
+    NoIdentifier(usize),
 }
 impl Default for Value {
     fn default() -> Self {
@@ -41,6 +86,7 @@ impl Value {
             Value::Number(num) => num != 0,
             Value::Boolean(bool) => bool,
             Value::Nil => false,
+            Value::Table(_) => unimplemented!(),
         }
     }
     pub fn get_number(self) -> Option<i64> {
@@ -48,6 +94,7 @@ impl Value {
             Value::Number(num) => Some(num),
             Value::Boolean(_) => None,
             Value::Nil => None,
+            Value::Table(_) => unimplemented!(),
         }
     }
 }
@@ -73,21 +120,20 @@ impl<const N: usize> Stack<N> {
         Some(())
     }
     pub fn peek(&mut self, index: usize) -> Option<Value> {
-        if index >= N {
-            return None;
-        }
-        Some(self.stack[index])
+        Some(self.stack[self.compute_distance(index)?])
     }
-    pub fn copy_head(&mut self) -> Option<>
     pub fn set(&mut self, index: usize, value: Value) -> Option<()> {
-        if index >= N {
-            return None;
-        }
-        self.stack[index] = value;
+        self.stack[self.compute_distance(index)?] = value;
         Some(())
     }
     pub fn clear(&mut self) {
         self.len = 0;
+    }
+    fn compute_distance(&self, index: usize) -> Option<usize> {
+        if self.len - index < 0 {
+            return None;
+        }
+        Some(self.len-index)
     }
 }
 impl<const N: usize> Default for Stack<N> {

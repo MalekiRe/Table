@@ -80,6 +80,7 @@ impl Vm {
                                 _=>  panic!("values aren't of the same type: Nil")
                             }
                         }
+                        Value::Table(_) => unimplemented!(),
                     };
                     self.eval_stack.push(Value::Boolean(ret)).unwrap();
                 }
@@ -132,7 +133,11 @@ impl Vm {
                     self.eval_stack.push(Number(val_2 / val_1));
                 }
                 Bytecode::Copy => {
-                    let val = self.eval_stack.peek(self.eval_stack)
+                    let val = self.eval_stack.peek(0).unwrap();
+                    self.eval_stack.push(val);
+                }
+                Bytecode::Inject => {
+                    unimplemented!()
                 }
             }
             if self.current_index == self.bytecode.len() {
