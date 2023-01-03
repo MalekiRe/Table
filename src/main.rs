@@ -7,6 +7,8 @@ use crate::virtual_machine::value::Value;
 use crate::virtual_machine::vm::Vm;
 
 mod virtual_machine;
+mod compiler;
+mod misc;
 
 fn main() {
     let mut vm = Vm::new();
