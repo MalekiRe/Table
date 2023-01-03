@@ -1,13 +1,17 @@
+use std::slice::Iter;
 use crate::value::Value;
 
 pub struct Table {
-    inner: Vec<TableKey>
+    pub inner: Vec<TableKey>
 }
 pub enum TableKey {
     Str(String, Value),
     NoStr(Value),
 }
 impl Table {
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
     pub fn indexed_get(&self, index: usize) -> Option<&Value> {
         match self.inner.get(index) {
             None => None,
@@ -30,7 +34,14 @@ impl Table {
             }
         }
     }
-    pub fn indexed_set(&mut self, index: usize, table_key: TableKey) {
-        self.inner.insert(index, table_key);
+    pub fn indexed_set(&mut self, index: usize, value: Value) {
+        self.inner.insert(index, TableKey::NoStr(value));
+    }
+}
+impl Default for Table {
+    fn default() -> Self {
+        Self {
+            inner: vec![]
+        }
     }
 }

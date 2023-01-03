@@ -5,18 +5,26 @@ pub const RETURN: u8 = 0x01;
 pub const LOAD_CONSTANT: u8 = 0x02;
 pub const PUSH_LOCAL: u8 = 0x03;
 pub const POP_LOCAL: u8 = 0x04;
-pub const PeekLocal: u8 = 0x05;
+pub const PEEK_LOCAL: u8 = 0x05;
 pub const PRINT: u8 = 0x06;
 pub const LOAD_INSTRUCTIONS: u8 = 0x07;
+pub const ALLOC_TABLE: u8 = 0x08;
+pub const TABLE_GET_INDEX: u8 = 0x09;
+pub const TABLE_SET_INDEX: u8 = 0x0A;
+pub const LOAD_CONST_NUM: u8 = 0x0B;
 
 pub enum Bytecode {
     Return,
     LoadConstant(usize),
+    LoadConstNum(usize),
     PushLocal,
     PopLocal,
     PeekLocal(usize),
     Print,
     LoadInstructions,
+    AllocTable,
+    TableGetIndex,
+    TableSetIndex,
 }
 impl Bytecode {
     pub fn convert_to_bytes(bytecode: &[Bytecode]) -> Vec<u8> {
@@ -32,11 +40,18 @@ impl Bytecode {
                 Bytecode::PushLocal => vec_bytes.push(PUSH_LOCAL),
                 Bytecode::PopLocal => vec_bytes.push(POP_LOCAL),
                 Bytecode::PeekLocal(value) => {
-                    vec_bytes.push(PeekLocal);
+                    vec_bytes.push(PEEK_LOCAL);
                     vec_bytes.extend(usize_to_byte_array(*value).iter().map(|byte| *byte));
                 }
                 Bytecode::Print => vec_bytes.push(PRINT),
                 Bytecode::LoadInstructions => vec_bytes.push(LOAD_INSTRUCTIONS),
+                Bytecode::AllocTable => vec_bytes.push(ALLOC_TABLE),
+                Bytecode::TableGetIndex => vec_bytes.push(TABLE_GET_INDEX),
+                Bytecode::TableSetIndex => vec_bytes.push(TABLE_SET_INDEX),
+                Bytecode::LoadConstNum(value) => {
+                    vec_bytes.push(LOAD_CONST_NUM);
+                    vec_bytes.extend(usize_to_byte_array(*value))
+                }
             }
         }
         vec_bytes
