@@ -1,5 +1,5 @@
 use util::PTR_WIDTH;
-use crate::util;
+use crate::virtual_machine::util;
 
 pub const RETURN: u8 = 0x01;
 pub const LOAD_CONSTANT: u8 = 0x02;

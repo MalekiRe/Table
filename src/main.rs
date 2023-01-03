@@ -1,16 +1,12 @@
-use crate::bytecode::{ALLOC_TABLE, byte_array_to_usize, Bytecode};
-use crate::Bytecode::{AllocTable, LoadConstNum, LoadInstructions, PeekLocal, PopLocal, PushLocal, RegisterSet, TableGetIndex, TableSetIndex};
-use crate::bytecode::Bytecode::{LoadConstant, Print};
-use crate::chunk::Chunk;
-use crate::value::Value;
-use crate::vm::Vm;
+use crate::virtual_machine::bytecode;
+use crate::virtual_machine::bytecode::{ALLOC_TABLE, byte_array_to_usize, Bytecode};
+use crate::virtual_machine::bytecode::Bytecode::{AllocTable, LoadConstNum, LoadInstructions, PeekLocal, PopLocal, PushLocal, RegisterSet, TableGetIndex, TableSetIndex};
+use crate::virtual_machine::bytecode::Bytecode::{LoadConstant, Print};
+use crate::virtual_machine::chunk::Chunk;
+use crate::virtual_machine::value::Value;
+use crate::virtual_machine::vm::Vm;
 
-pub mod bytecode;
-pub mod util;
-pub mod vm;
-pub mod table;
-pub mod value;
-mod chunk;
+mod virtual_machine;
 
 fn main() {
     let mut vm = Vm::new();

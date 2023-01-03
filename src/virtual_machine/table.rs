@@ -1,5 +1,5 @@
 use std::slice::Iter;
-use crate::value::Value;
+use crate::virtual_machine::value::Value;
 
 pub struct Table {
     pub inner: Vec<TableKey>

@@ -1,9 +1,9 @@
-use crate::bytecode;
-use crate::bytecode::usize_to_byte_array;
-use crate::chunk::Chunk;
-use crate::table::{Table, TableKey};
-use crate::util::PTR_WIDTH;
-use crate::value::Value;
+use crate::virtual_machine::bytecode;
+use crate::virtual_machine::bytecode::usize_to_byte_array;
+use crate::virtual_machine::chunk::Chunk;
+use crate::virtual_machine::table::{Table, TableKey};
+use crate::virtual_machine::util::PTR_WIDTH;
+use crate::virtual_machine::value::Value;
 
 pub struct Vm {
     chunks: Vec<Chunk>,

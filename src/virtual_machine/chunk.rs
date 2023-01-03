@@ -1,6 +1,6 @@
-use crate::bytecode::byte_array_to_usize;
-use crate::util::PTR_WIDTH;
-use crate::value::Value;
+use crate::virtual_machine::bytecode::byte_array_to_usize;
+use crate::virtual_machine::util::PTR_WIDTH;
+use crate::virtual_machine::value::Value;
 
 pub struct Chunk {
     pub ptr: usize,

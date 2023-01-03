@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use crate::table::Table;
+use crate::virtual_machine::table::Table;
 
 pub type TablePointer = usize;
 
