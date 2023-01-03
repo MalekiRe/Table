@@ -1,39 +1,27 @@
-use std::ops::Range;
-use terminal_emoji::Emoji;
-//
-// mod parser;
+use crate::bytecode::{byte_array_to_usize, Bytecode};
+use crate::bytecode::Bytecode::{LoadConstant, Print};
+use crate::chunk::Chunk;
+use crate::value::Value;
+use crate::vm::Vm;
+
+pub mod bytecode;
+pub mod util;
+pub mod vm;
+pub mod table;
+pub mod value;
+mod chunk;
 
 fn main() {
-    print_hearts(vec![3..7, 14..18]);
-    print_hearts(vec![2..8, 13..19]);
-    print_hearts(vec![1..9, 12..20]);
-    for i in 0..3 {
-        print_hearts(vec![0..21]);
-    }
-    for i in 1..11 {
-        print_hearts(vec![i..21-i]);
-    }
-
-
+    let mut vm = Vm::new();
+    vm.constants = vec![Value::Int(69420)];
+    vm.load(first_test_chunk());
+    vm.run();
 }
-fn print_hearts(ranges: Vec<Range<u32>>) {
-    for i in 0..21 {
-        let mut did = false;
-        for range in &ranges {
-            if range.contains(&i) {
-                heart();
-                did = true;
-            }
-        }
-        if !did {
-            space()
-        }
+fn first_test_chunk() -> Chunk {
+    Chunk {
+        ptr: 0,
+        instructions: Bytecode::convert_to_bytes(vec![LoadConstant(0), Print].as_slice()),
+        locals: vec![],
+        eval_stack: vec![],
     }
-    print!("\n");
-}
-fn space() {
-    print!("🦀a");
-}
-fn heart() {
-    print!("❤️");
 }
