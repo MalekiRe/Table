@@ -12,6 +12,8 @@ pub const ALLOC_TABLE: u8 = 0x08;
 pub const TABLE_GET_INDEX: u8 = 0x09;
 pub const TABLE_SET_INDEX: u8 = 0x0A;
 pub const LOAD_CONST_NUM: u8 = 0x0B;
+pub const REGISTER_SET: u8 = 0x0C;
+pub const REGISTER_GET: u8 = 0x0D;
 
 pub enum Bytecode {
     Return,
@@ -25,6 +27,8 @@ pub enum Bytecode {
     AllocTable,
     TableGetIndex,
     TableSetIndex,
+    RegisterSet(usize),
+    RegisterGet(usize),
 }
 impl Bytecode {
     pub fn convert_to_bytes(bytecode: &[Bytecode]) -> Vec<u8> {
@@ -50,6 +54,14 @@ impl Bytecode {
                 Bytecode::TableSetIndex => vec_bytes.push(TABLE_SET_INDEX),
                 Bytecode::LoadConstNum(value) => {
                     vec_bytes.push(LOAD_CONST_NUM);
+                    vec_bytes.extend(usize_to_byte_array(*value))
+                }
+                Bytecode::RegisterSet(value) => {
+                    vec_bytes.push(REGISTER_SET);
+                    vec_bytes.extend(usize_to_byte_array(*value))
+                }
+                Bytecode::RegisterGet(value) => {
+                    vec_bytes.push(REGISTER_GET);
                     vec_bytes.extend(usize_to_byte_array(*value))
                 }
             }

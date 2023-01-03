@@ -10,6 +10,7 @@ pub struct Vm {
     tables: Vec<Table>,
     heap_variables: Vec<Value>,
     pub constants: Vec<Value>,
+    register: [Value; 255],
 }
 impl Vm {
     pub fn new() -> Self {
@@ -18,6 +19,7 @@ impl Vm {
             tables: vec![],
             heap_variables: vec![],
             constants: vec![],
+            register: [Value::EmptyTable; 255]
         }
     }
     pub fn load(&mut self, chunk: Chunk) {
@@ -99,6 +101,15 @@ impl Vm {
                     let const_num = self.chunk_mut().index_from_stack();
                     self.push_eval(Value::Int(const_num as i64));
                 }
+                bytecode::REGISTER_SET => {
+                    let register_index = self.chunk_mut().index_from_stack();
+                    self.register[register_index] = self.pop_eval();
+                }
+                bytecode::REGISTER_GET => {
+                    let register_index = self.chunk_mut().index_from_stack();
+                    let value = *self.register.get(register_index).unwrap();
+                    self.push_eval(value);
+                }
                 _ => {}
             }
         }
@@ -153,7 +164,9 @@ pub fn vals_to_u8_bytecode(values: Vec<Value>) -> Vec<u8> {
                 match number as u8 {
                     bytecode::LOAD_CONSTANT |
                     bytecode::LOAD_CONST_NUM |
-                    bytecode::PEEK_LOCAL
+                    bytecode::PEEK_LOCAL |
+                    bytecode::REGISTER_GET |
+                    bytecode::REGISTER_SET
                     => {
                         index += 1;
                         let new_number = val_to_usize(*values.get(index).unwrap()).unwrap();
