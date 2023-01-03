@@ -30,11 +30,12 @@ impl Vm {
     }
     pub fn run(&mut self) {
         while self.chunk_mut().ptr < self.chunk_mut().instructions.len() {
-            println!("instruction: {}", self.chunk().instructions.get(self.chunk().ptr).unwrap());
+            //println!("instruction: {}", self.chunk().instructions.get(self.chunk().ptr).unwrap());
             self.chunk_mut().ptr += 1;
             match *self.chunk().instructions.get(self.chunk().ptr-1).unwrap() {
                 bytecode::RETURN => {
-                    self.chunks.pop();
+                    let prev_stack = self.chunks.pop().unwrap().eval_stack;
+                    self.chunk_mut().eval_stack.extend(prev_stack);
                 }
                 bytecode::LOAD_CONSTANT => {
                     let index = self.chunk_mut().index_from_stack();
