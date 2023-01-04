@@ -1,7 +1,9 @@
 use chumsky::{Span, Stream, Parser, select};
-use chumsky::prelude::{filter_map, just, recursive, Recursive, skip_until};
+use chumsky::prelude::{end, filter_map, just, recursive, Recursive, skip_until};
 use crate::compiler::parser::lexer::lexer;
 use crate::{do_err_messages, ir, Token};
+use crate::compiler::ir::{BExp, TableOperation};
+use crate::compiler::ir::TableOperation::{TableFieldAccess, TableStaticFuncCalling};
 use crate::compiler::parser::error::{Error, ErrorKind, Pattern};
 use crate::compiler::parser::span::TSpan;
 use crate::ir::{BinaryOp, BinaryOperation, EqualityOp, Exp, ExpBlock, File, FnCall, LiteralValue, MathOp, TableKeyTemp, UnaryPrefixOp, UnaryPrefixOperation};
@@ -28,7 +30,7 @@ pub fn parse_and_lex(src: String) -> (Option<ir::Exp>, Vec<Error>) {
     };
     println!("tokens: {:#?}", tokens);
 
-    let (ir, mut parser_errors) = exp().parse_recovery(chumsky::Stream::from_iter(my_span, tokens.into_iter()));
+    let (ir, mut parser_errors) = exp().then_ignore(end()).parse_recovery(chumsky::Stream::from_iter(my_span, tokens.into_iter()));
     lex_errors.append(&mut parser_errors);
     match ir {
         None => (None, lex_errors),
@@ -100,15 +102,46 @@ pub fn exp() -> impl TParser<ir::Exp> {
             .or(identifier().map(|identifier| {
                 Exp::Variable(identifier)
             }))
-            .or(unary_prefix_operation(exp).map(|op| {
+            .or(unary_prefix_operation(exp.clone()).map(|op| {
                 Exp::UnaryPrefixOperation(op)
+            }))
+            .or(table_operation(exp.clone()).map(|table_op| {
+                Exp::TableOperation(table_op)
+            }))
+            .or(binary_operation(exp.clone()).map(|op| {
+                Exp::BinaryOperation(op)
             }))
     }).labelled("expression")
 }
+pub fn table_operation(exp: impl TParser<Exp>) -> impl TParser<TableOperation> {
+    let table_indexing = exp.clone().then(exp.clone()).map(|(table, index)| {
+       TableOperation::TableIndexing { table: Box::new(table), index: Box::new(index) }
+    });
+    let table_method_calling = exp.clone().then_ignore(just(Token::Control('.'))).then(fn_call(exp.clone())).map(|(table, method)|{
+       TableOperation::TableMethodCalling {
+           table: Box::new(table),
+           method
+       }
+    });
+    let table_field_access = exp.clone().then_ignore(just(Token::Control('.'))).then(identifier()).map(|(table, field)| {
+       TableFieldAccess {
+           table: Box::new(table),
+           field
+       }
+    });
+    let table_static_fn_calling = exp.clone().then_ignore(just(Token::Control(':'))).then_ignore(just(Token::Control(':'))).then(fn_call(exp.clone())).map(|(table, method)|{
+       TableStaticFuncCalling {
+           table: Box::new(table),
+           method
+       }
+    });
+    table_indexing.or(table_method_calling).or(table_field_access).or(table_static_fn_calling)
+}
 pub fn binary_operation(exp: impl TParser<Exp>) -> impl TParser<BinaryOperation> {
+    //TODO Actual order of operations
     let binary_op = select!{
         Token::Operator(operator) => {
-            match operator {
+            match operator.as_str() {
                 "+" => BinaryOp::Math(MathOp::Add),
                 "-" => BinaryOp::Math(MathOp::Subtract),
                 "/" => BinaryOp::Math(MathOp::Divide),
@@ -122,9 +155,24 @@ pub fn binary_operation(exp: impl TParser<Exp>) -> impl TParser<BinaryOperation>
 
                 "==" => BinaryOp::Equality(EqualityOp::EqualsEquals),
                 "!=" => BinaryOp::Equality(EqualityOp::EqualsNot),
+                ">=" => BinaryOp::Equality(EqualityOp::EqualsGreater),
+                "<=" => BinaryOp::Equality(EqualityOp::EqualsLess),
+                ">" => BinaryOp::Equality(EqualityOp::Greater),
+                "<" => BinaryOp::Equality(EqualityOp::Less),
+                "&" => BinaryOp::Equality(EqualityOp::And),
+                "|" => BinaryOp::Equality(EqualityOp::Or),
+                &_ => panic!("how?"),
             }
         }
     };
+    exp.clone().then(binary_op).then(exp)
+        .map(|((lhs, op), rhs)| {
+            BinaryOperation {
+                lhs: Box::new(lhs),
+                op,
+                rhs: Box::new(rhs)
+            }
+        })
 }
 pub fn identifier() -> impl TParser<ir::IdentifierT> {
     let ident = filter_map(|span, tok| match tok {

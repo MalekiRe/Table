@@ -28,9 +28,13 @@ fn main() {
     test_table_dec();
     test_fn_call();
     test_not_thing();
+    test_binary_op();
 }
 pub fn test_table_dec() {
     lex("[a: 1, 2, true, 2, Som_randIden212ifer: \"yo yo yo evereybody\", some_var: my_var]".to_string());
+}
+pub fn test_binary_op() {
+    lex("1 + 2".to_string())
 }
 pub fn test_fn_call() {
     lex("some_func(1, my_identifier, [a: 1, 2, true])".to_string());

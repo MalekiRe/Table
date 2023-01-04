@@ -40,9 +40,9 @@ pub enum TableOperation {
         method: FnCall,
     },
     /// this is like ```some_table.some_val```
-    TableArgAccess{
+    TableFieldAccess {
         table: BExp,
-        arg: IdentifierT,
+        field: IdentifierT,
     },
     /// this is like ```some_table::foo()``` where `foo` doesn't take in `self`
     TableStaticFuncCalling{
@@ -79,9 +79,9 @@ pub struct UnaryPrefixOperation {
 }
 #[derive(Debug)]
 pub struct BinaryOperation {
-    lhs: BExp,
-    op: BinaryOp,
-    rhs: BExp,
+    pub(crate) lhs: BExp,
+    pub(crate) op: BinaryOp,
+    pub(crate) rhs: BExp,
 }
 #[derive(Debug)]
 pub enum UnaryPostfixOp {
