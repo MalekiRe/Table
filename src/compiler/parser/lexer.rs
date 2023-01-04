@@ -43,7 +43,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, TSpan)>, Error = Error> {
         .then_ignore(just('"'))
         .collect::<String>()
         .map(Token::String);
-    let operator = one_of("@+-*/!=&|%")
+    let operator = one_of("@+-*/!=&|%<>")
         .repeated()
         .at_least(1)
         .collect::<String>()

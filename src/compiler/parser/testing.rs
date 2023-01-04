@@ -1,42 +1,43 @@
 use chumsky::chain::Chain;
 use proptest::proptest;
-use crate::{FileHolder, ir, parse_and_lex, print_errors};
+use crate::{FileHolder, ir, parse_exp, print_errors};
 use crate::compiler::parser;
+use crate::compiler::parser::parse_block;
 use crate::Exp;
 use crate::ir::LiteralValue;
 #[cfg(test)]
 mod test{
-    use crate::compiler::parser::testing::parse;
+    use crate::compiler::parser::testing::{parse_exp_thing, parse_file};
     use crate::Exp;
-    use crate::ir::{IdentifierT, LiteralValue, TableKeyTemp};
+    use crate::ir::{File, IdentifierT, LiteralValue, TableKeyTemp};
 
     #[test]
     fn literals() {
-        match parse("1") {
+        match parse_exp_thing("1") {
             None => assert!(false),
             Some(ir) => assert_eq!(ir, Exp::LiteralValue(LiteralValue::Integer(1)))
         }
-        match parse("2.0") {
+        match parse_exp_thing("2.0") {
             None => assert!(false),
             Some(ir) => assert_eq!(ir, Exp::LiteralValue(LiteralValue::Decimal(2.0)))
         }
-        match parse("0.0") {
+        match parse_exp_thing("0.0") {
             None => assert!(false),
             Some(ir) => assert_eq!(ir, Exp::LiteralValue(LiteralValue::Decimal(0.0)))
         }
-        match parse("true") {
+        match parse_exp_thing("true") {
             None => assert!(false),
             Some(ir) => assert_eq!(ir, Exp::LiteralValue(LiteralValue::Boolean(true)))
         }
-        match parse("false") {
+        match parse_exp_thing("false") {
             None => assert!(false),
             Some(ir) => assert_eq!(ir, Exp::LiteralValue(LiteralValue::Boolean(false)))
         }
-        match parse("\"some string\"") {
+        match parse_exp_thing("\"some string\"") {
             None => assert!(false),
             Some(ir) => assert_eq!(ir, Exp::LiteralValue(LiteralValue::String("some string".to_string())))
         }
-        match parse("[1, a: \"my_thing\", b]") {
+        match parse_exp_thing("[1, a: \"my_thing\", b]") {
             None => {}
             Some(ir) => {
                 assert_eq!(ir, Exp::LiteralValue(LiteralValue::Table(
@@ -50,7 +51,7 @@ mod test{
     }
     #[test]
     fn fn_call() {
-        match parse("foo(bar, 1, [1, a: \"my_thing\", b])") {
+        match parse_exp_thing("foo(bar, 1, [1, a: \"my_thing\", b])") {
             None => assert!(false),
             Some(ir) => {
                 match ir {
@@ -68,28 +69,67 @@ mod test{
     }
     #[test]
     fn method_access() {
-        match parse(format!("{}.some_func(bar, 1)", generate_table_test()).as_str()) {
+        match parse_exp_thing(format!("{}.some_func(bar, 1)", generate_table_test()).as_str()) {
             None => assert!(false),
             Some(_) => {}
         }
     }
     #[test]
     fn static_fn_access() {
-        match parse(format!("{}::{}", generate_table_test(), generate_fn_test()).as_str()) {
+        match parse_exp_thing(format!("{}::{}", generate_table_test(), generate_fn_test()).as_str()) {
+            None => assert!(false),
+            Some(_) => {}
+        }
+    }
+    // #[test]
+    // fn empty_file_test() {
+    //     match parse_file("") {
+    //         None => assert!(false),
+    //         Some(ir) => assert_eq!(ir, File::Empty)
+    //     }
+    // }
+    #[test]
+    fn basic_file_test() {
+        match parse_file(
+r#"
+let x = 1;
+let y = 1 + 2;
+let z = my_function(a, b, c);
+fn some_function(d, e, f) {
+    print(d, e);
+    f
+}
+let x = x + y;
+"#              ) {
             None => assert!(false),
             Some(_) => {}
         }
     }
     #[test]
-    fn exp_block() {
+    fn fn_closures() {
+        match parse_file(r#"
+        let x = 1;
+        let y = 0.1;
+        fn my_function<x, y>(a, b){
 
+        }
+        "#) {
+            None => assert!(false),
+            Some(_) => {}
+        }
     }
 }
 
-pub fn parse(file: &str) -> Option<ir::Exp> {
+pub fn parse_exp_thing(file: &str) -> Option<ir::Exp> {
     let file_holder = FileHolder::from(file.to_string().clone());
-    let (ir, errors) = parse_and_lex(file.to_string());
+    let (ir, errors) = parse_exp(file.to_string());
     //print_errors(errors, file_holder);
+    assert_eq!(errors.len(), 0, "{:?}", get_errors_display(errors, file_holder));
+    ir
+}
+pub fn parse_file(file: &str) -> Option<ir::File> {
+    let file_holder = FileHolder::from(file.to_string().clone());
+    let (ir, errors) = parse_block(file.to_string());
     assert_eq!(errors.len(), 0, "{:?}", get_errors_display(errors, file_holder));
     ir
 }

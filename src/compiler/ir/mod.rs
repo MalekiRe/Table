@@ -16,17 +16,7 @@ pub enum Exp {
     UnaryPrefixOperation(UnaryPrefixOperation),
     BinaryOperation(BinaryOperation),
 }
-#[derive(Debug, PartialEq)]
-pub enum Block {
-    ExpBlock(ExpBlock),
-    StatementBlock(StatementBlock),
-}
-#[derive(Debug, PartialEq)]
-pub enum MaybeEmptyBlock {
-    ExpBlock(ExpBlock),
-    StatementBlock(StatementBlock),
-    Empty,
-}
+
 #[derive(Debug, PartialEq)]
 pub enum TableOperation {
     /// this is like ```(a: my_thing, 1, "hi")[1]```
@@ -58,15 +48,44 @@ pub enum LiteralValue {
     Table(TableLiteral),
     Boolean(bool),
 }
+/// `ExpBlock ::= { Statement* Exp }`
 #[derive(Debug, PartialEq)]
 pub struct ExpBlock(pub Vec<BStatement>, pub BExp);
+/// `StatementBlock ::= { Statement+ }`
 #[derive(Debug, PartialEq)]
 pub struct StatementBlock(pub VecTuple1<BStatement>);
+
+/// `OptionalStatementBlock ::= { Statement* }`
 #[derive(Debug, PartialEq)]
-pub enum MaybeEmptyStatementBlock {
+pub enum OptionalStatementBlock {
     StatementBlock(StatementBlock),
     Empty,
 }
+
+/// `OptionalBlock ::= ExpBlock | OptionalStatementBlock`
+/// `OptionalBlock ::= { Statement* Exp} | { Statement* }`
+#[derive(Debug, PartialEq)]
+pub enum OptionalBlock {
+    ExpBlock(ExpBlock),
+    OptionalStatementBlock(OptionalStatementBlock),
+}
+/// `Block ::= ExpBlock | StatementBlock`
+/// `Block ::= { Statement* Exp } | { Statement+ }`
+#[derive(Debug, PartialEq)]
+pub enum Block {
+    ExpBlock(ExpBlock),
+    StatementBlock(StatementBlock),
+}
+
+/// `FnBody ::= OptionalBlock | Exp | Statement`
+/// `FnBody ::= ('{' Statement* Exp? '}') | Exp | Statement`
+#[derive(Debug, PartialEq)]
+pub enum FnBody {
+    OptionalBlock(OptionalBlock),
+    Exp(BExp),
+    Statement(BStatement)
+}
+
 #[derive(Debug, PartialEq)]
 pub struct UnaryPostfixOperation {
     exp: BExp,
@@ -148,19 +167,20 @@ pub enum Statement {
     FnImport(FnImport),
     LetStatement(LetStatement),
     ExpStatement(BExp),
-    StatementBlock(MaybeEmptyStatementBlock),
+    StatementBlock(OptionalStatementBlock),
     UnaryPostfixOperation(UnaryPostfixOperation),
 }
 #[derive(Debug, PartialEq)]
 pub struct FnImport {
-    identifier: IdentifierT,
-    args: Vec<IdentifierT>,
+    pub(crate) identifier: IdentifierT,
+    pub(crate) args: Vec<IdentifierT>,
 }
 #[derive(Debug, PartialEq)]
 pub struct FnDec {
     pub(crate) identifier: IdentifierT,
     pub(crate) args: Vec<IdentifierT>,
-    pub(crate) body: Block,
+    pub(crate) closed_args: Vec<IdentifierT>,
+    pub(crate) body: FnBody,
     pub(crate) exported: bool,
 }
 #[derive(Debug, PartialEq)]
@@ -170,8 +190,8 @@ pub struct FnCall {
 }
 #[derive(Debug, PartialEq)]
 pub struct LetStatement {
-    identifier: IdentifierT,
-    lhs: BExp,
+    pub(crate) identifier: IdentifierT,
+    pub(crate) lhs: BExp,
 }
 
 pub type TableLiteral = Vec<TableKeyTemp>;
@@ -180,4 +200,15 @@ pub struct TableKeyTemp {
     pub(crate) ident: Option<IdentifierT>,
     pub(crate) exp: BExp,
 }
-pub type File = MaybeEmptyBlock;
+/// `File: JustStatements ::= Statement+`
+/// `File: StatementExp ::= Statement* Exp`
+/// `File: Empty ::= `
+#[derive(Debug, PartialEq)]
+pub enum File {
+    /// `JustStatements ::= Statement+`
+    JustStatements(VecTuple1<BStatement>),
+    /// `StatementExp ::= Statement* Exp`
+    StatementExp(Vec<BStatement>, BExp),
+    /// `StatementExp ::= `
+    Empty,
+}

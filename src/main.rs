@@ -4,7 +4,7 @@ use chumsky::prelude::Simple;
 use crate::compiler::{FileHolder, ir};
 use crate::compiler::parser::error::Error;
 use crate::compiler::parser::lexer::Token;
-use crate::compiler::parser::parse_and_lex;
+use crate::compiler::parser::parse_exp;
 use crate::ir::{Exp, LetStatement, StatementBlock};
 use crate::misc::VecTuple1;
 use crate::virtual_machine::bytecode;
@@ -54,14 +54,14 @@ pub fn test_fn_dec() {
         do_something(hi);
         do_another_thing.yellow();
     }
-    fn test_fn(a, b) a + b
+    fn test_fn(a, b) { a + b }
     1
     }
     "#.to_string());
 }
 pub fn lex(file: String) {
     let file_holder = FileHolder::from(file.clone());
-    let (ir, errors) = parse_and_lex(file);
+    let (ir, errors) = parse_exp(file);
     print_errors(errors, file_holder);
     match ir {
         None => {}
