@@ -25,13 +25,14 @@ fn main() {
     vm.constants = constants;
     vm.load(chunk);
     vm.run();
-    test_fn_call()
+    test_table_dec();
+    test_fn_call();
 }
 pub fn test_table_dec() {
-    lex("[a: 1, 2, true, 2, Som_randIden212ifer: \"yo yo yo evereybody\"]".to_string());
+    lex("[a: 1, 2, true, 2, Som_randIden212ifer: \"yo yo yo evereybody\", some_var: my_var]".to_string());
 }
 pub fn test_fn_call() {
-    lex("some_func(1, 2, [a: 1, 2, true])".to_string());
+    lex("some_func(1, my_identifier, [a: 1, 2, true])".to_string());
 }
 pub fn lex(file: String) {
     let file_holder = FileHolder::from(file.clone());

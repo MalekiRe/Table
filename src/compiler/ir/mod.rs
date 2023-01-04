@@ -13,7 +13,6 @@ pub enum Exp {
     FnCall(FnCall),
     TableOperation(TableOperation),
     Variable(IdentifierT),
-    UnaryPostfixOperation(UnaryPostfixOperation),
     UnaryPrefixOperation(UnaryPrefixOperation),
     BinaryOperation(BinaryOperation),
 }
@@ -58,7 +57,6 @@ pub enum LiteralValue {
     String(String),
     Table(TableLiteral),
     Boolean(bool),
-    Error,
 }
 #[derive(Debug)]
 pub struct ExpBlock(Vec<BStatement>, BExp);
@@ -151,6 +149,7 @@ pub enum Statement {
     LetStatement(LetStatement),
     ExpStatement(BExp),
     StatementBlock(MaybeEmptyStatementBlock),
+    UnaryPostfixOperation(UnaryPostfixOperation),
 }
 #[derive(Debug)]
 pub struct FnImport {

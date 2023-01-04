@@ -2,9 +2,9 @@ use chumsky::{Span, Stream, Parser, select};
 use chumsky::prelude::{filter_map, just, recursive, Recursive, skip_until};
 use crate::compiler::parser::lexer::lexer;
 use crate::{do_err_messages, ir, Token};
-use crate::compiler::parser::error::{Error, Pattern};
+use crate::compiler::parser::error::{Error, ErrorKind, Pattern};
 use crate::compiler::parser::span::TSpan;
-use crate::ir::{Exp, File, FnCall, LiteralValue, TableKeyTemp};
+use crate::ir::{Exp, ExpBlock, File, FnCall, LiteralValue, TableKeyTemp};
 
 pub mod lexer;
 pub mod error;
@@ -56,7 +56,7 @@ pub fn literal_value(exp: impl TParser<ir::Exp>) -> impl TParser<ir::LiteralValu
             exp: Box::new(exp)
         }
     });
-    let table = table_without_key.or(table_with_key).separated_by(just(Token::Control(','))).allow_trailing().delimited_by(just(Token::Control('[')), just(Token::Control(']')));
+    let table = table_with_key.or(table_without_key).separated_by(just(Token::Control(','))).allow_trailing().delimited_by(just(Token::Control('[')), just(Token::Control(']')));
     let table = table.map(|things|{
         ir::LiteralValue::Table(things)
     });
@@ -74,6 +74,9 @@ pub fn fn_call(exp: impl TParser<Exp>) -> impl TParser<ir::FnCall> {
         }
     })
 }
+// pub fn exp_block(exp: impl TParser<Exp>) -> impl TParser<ExpBlock> {
+//     unimplemented!()
+// }
 pub fn exp() -> impl TParser<ir::Exp> {
     recursive(|exp| {
         literal_value(exp.clone()).map(|val| {
@@ -85,12 +88,15 @@ pub fn exp() -> impl TParser<ir::Exp> {
                         Exp::FnCall(fn_call)
                     })
             )
+            .or(identifier().map(|identifier| {
+                Exp::Variable(identifier)
+            }))
     }).labelled("expression")
 }
 pub fn identifier() -> impl TParser<ir::IdentifierT> {
     let ident = filter_map(|span, tok| match tok {
         Token::Identifier(ident) => Ok(ident.clone()),
-        _ => unreachable!(),
+        _ => Err(error::Error::new(ErrorKind::Unexpected(Pattern::TermIdent), span)),
     });
     ident
 }
