@@ -74,8 +74,8 @@ pub struct UnaryPostfixOperation {
 }
 #[derive(Debug)]
 pub struct UnaryPrefixOperation {
-    op: UnaryPrefixOp,
-    exp: BExp,
+    pub op: UnaryPrefixOp,
+    pub exp: BExp,
 }
 #[derive(Debug)]
 pub struct BinaryOperation {

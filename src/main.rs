@@ -27,12 +27,16 @@ fn main() {
     vm.run();
     test_table_dec();
     test_fn_call();
+    test_not_thing();
 }
 pub fn test_table_dec() {
     lex("[a: 1, 2, true, 2, Som_randIden212ifer: \"yo yo yo evereybody\", some_var: my_var]".to_string());
 }
 pub fn test_fn_call() {
     lex("some_func(1, my_identifier, [a: 1, 2, true])".to_string());
+}
+pub fn test_not_thing() {
+    lex("!some_func(1, my_identifier)".to_string());
 }
 pub fn lex(file: String) {
     let file_holder = FileHolder::from(file.clone());

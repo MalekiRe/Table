@@ -4,7 +4,7 @@ use crate::compiler::parser::lexer::lexer;
 use crate::{do_err_messages, ir, Token};
 use crate::compiler::parser::error::{Error, ErrorKind, Pattern};
 use crate::compiler::parser::span::TSpan;
-use crate::ir::{Exp, ExpBlock, File, FnCall, LiteralValue, TableKeyTemp};
+use crate::ir::{Exp, ExpBlock, File, FnCall, LiteralValue, TableKeyTemp, UnaryPrefixOp, UnaryPrefixOperation};
 
 pub mod lexer;
 pub mod error;
@@ -74,6 +74,15 @@ pub fn fn_call(exp: impl TParser<Exp>) -> impl TParser<ir::FnCall> {
         }
     })
 }
+pub fn unary_prefix_operation(exp: impl TParser<Exp>) -> impl TParser<UnaryPrefixOperation> {
+    just(Token::Operator("!".to_string())).ignore_then(exp)
+        .map(|exp| {
+            UnaryPrefixOperation {
+                op: UnaryPrefixOp::Not,
+                exp: Box::new(exp),
+            }
+        })
+}
 // pub fn exp_block(exp: impl TParser<Exp>) -> impl TParser<ExpBlock> {
 //     unimplemented!()
 // }
@@ -90,6 +99,9 @@ pub fn exp() -> impl TParser<ir::Exp> {
             )
             .or(identifier().map(|identifier| {
                 Exp::Variable(identifier)
+            }))
+            .or(unary_prefix_operation(exp).map(|op| {
+                Exp::UnaryPrefixOperation(op)
             }))
     }).labelled("expression")
 }
