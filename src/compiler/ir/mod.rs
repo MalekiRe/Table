@@ -1,9 +1,12 @@
+pub mod ir_bytecode_compiler;
+
 use crate::misc::VecTuple1;
 
 pub type IdentifierT = String;
 pub type BExp = Box<Exp>;
 pub type BStatement = Box<Statement>;
 
+#[derive(Debug)]
 pub enum Exp {
     ExpBlock(ExpBlock),
     LiteralValue(LiteralValue),
@@ -14,15 +17,18 @@ pub enum Exp {
     UnaryPrefixOperation(UnaryPrefixOperation),
     BinaryOperation(BinaryOperation),
 }
+#[derive(Debug)]
 pub enum Block {
     ExpBlock(ExpBlock),
     StatementBlock(StatementBlock),
 }
+#[derive(Debug)]
 pub enum MaybeEmptyBlock {
     ExpBlock(ExpBlock),
     StatementBlock(StatementBlock),
     Empty,
 }
+#[derive(Debug)]
 pub enum TableOperation {
     /// this is like ```(a: my_thing, 1, "hi")[1]```
     TableIndexing{
@@ -45,7 +51,7 @@ pub enum TableOperation {
         method: FnCall
     }
 }
-
+#[derive(Debug)]
 pub enum LiteralValue {
     Decimal(f64),
     Integer(isize),
@@ -53,40 +59,49 @@ pub enum LiteralValue {
     Table(TableLiteral),
     Boolean(bool),
 }
-
+#[derive(Debug)]
 pub struct ExpBlock(Vec<BStatement>, BExp);
+#[derive(Debug)]
 pub struct StatementBlock(VecTuple1<BStatement>);
+#[derive(Debug)]
 pub enum MaybeEmptyStatementBlock {
     StatementBlock(StatementBlock),
     Empty,
 }
+#[derive(Debug)]
 pub struct UnaryPostfixOperation {
     exp: BExp,
     op: UnaryPostfixOp,
 }
+#[derive(Debug)]
 pub struct UnaryPrefixOperation {
     op: UnaryPrefixOp,
     exp: BExp,
 }
+#[derive(Debug)]
 pub struct BinaryOperation {
     lhs: BExp,
     op: BinaryOp,
     rhs: BExp,
 }
+#[derive(Debug)]
 pub enum UnaryPostfixOp {
     /// `foo++`
     Increment,
     /// `foo--`
     Decrement,
 }
+#[derive(Debug)]
 pub enum UnaryPrefixOp {
     /// `!foo`
     Not,
 }
+#[derive(Debug)]
 pub enum BinaryOp {
     Math(MathOp),
     Equality(EqualityOp),
 }
+#[derive(Debug)]
 pub enum MathOp {
     /// `foo + bar`
     Add,
@@ -109,6 +124,7 @@ pub enum MathOp {
     /// `foo %= bar`
     ModuloEqual,
 }
+#[derive(Debug)]
 pub enum EqualityOp {
     /// `foo == bar`
     EqualsEquals,
@@ -127,6 +143,7 @@ pub enum EqualityOp {
     /// `foo | bar`
     Or,
 }
+#[derive(Debug)]
 pub enum Statement {
     FnDec(FnDec),
     FnImport(FnImport),
@@ -134,23 +151,33 @@ pub enum Statement {
     ExpStatement(BExp),
     StatementBlock(MaybeEmptyStatementBlock),
 }
+#[derive(Debug)]
 pub struct FnImport {
     identifier: IdentifierT,
     args: Vec<IdentifierT>,
 }
+#[derive(Debug)]
 pub struct FnDec {
     identifier: IdentifierT,
     args: Vec<IdentifierT>,
     body: Block,
     exported: bool,
 }
+#[derive(Debug)]
 pub struct FnCall {
     identifier: IdentifierT,
     args: Vec<BExp>,
 }
+#[derive(Debug)]
 pub struct LetStatement {
     identifier: IdentifierT,
     lhs: BExp,
 }
-pub type TableLiteral = Vec<(Option<IdentifierT>, BExp)>;
+
+pub type TableLiteral = Vec<TableKeyTemp>;
+#[derive(Debug)]
+pub struct TableKeyTemp {
+    pub(crate) ident: Option<IdentifierT>,
+    pub(crate) exp: BExp,
+}
 pub type File = MaybeEmptyBlock;
