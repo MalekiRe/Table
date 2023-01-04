@@ -58,6 +58,7 @@ pub enum LiteralValue {
     String(String),
     Table(TableLiteral),
     Boolean(bool),
+    Error,
 }
 #[derive(Debug)]
 pub struct ExpBlock(Vec<BStatement>, BExp);
@@ -165,8 +166,8 @@ pub struct FnDec {
 }
 #[derive(Debug)]
 pub struct FnCall {
-    identifier: IdentifierT,
-    args: Vec<BExp>,
+    pub(crate) identifier: IdentifierT,
+    pub(crate) args: Vec<BExp>,
 }
 #[derive(Debug)]
 pub struct LetStatement {

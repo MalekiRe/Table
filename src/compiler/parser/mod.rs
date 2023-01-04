@@ -1,10 +1,10 @@
 use chumsky::{Span, Stream, Parser, select};
-use chumsky::prelude::{filter_map, just, recursive, Recursive};
+use chumsky::prelude::{filter_map, just, recursive, Recursive, skip_until};
 use crate::compiler::parser::lexer::lexer;
 use crate::{do_err_messages, ir, Token};
 use crate::compiler::parser::error::{Error, Pattern};
 use crate::compiler::parser::span::TSpan;
-use crate::ir::{Exp, File, TableKeyTemp};
+use crate::ir::{Exp, File, FnCall, LiteralValue, TableKeyTemp};
 
 pub mod lexer;
 pub mod error;
@@ -63,11 +63,28 @@ pub fn literal_value(exp: impl TParser<ir::Exp>) -> impl TParser<ir::LiteralValu
     first.or(table).map_err(|e: Error| e.expected(Pattern::Literal))
         .labelled("literal")
 }
+pub fn fn_call(exp: impl TParser<Exp>) -> impl TParser<ir::FnCall> {
+    identifier().then(
+        exp.clone().separated_by(just(Token::Control(','))).allow_trailing()
+            .delimited_by(just(Token::Control('(')), just(Token::Control(')')))
+    ).map(|(identifier, exps)| {
+        FnCall {
+            identifier,
+            args: exps.into_iter().map(|exp| Box::new(exp)).collect()
+        }
+    })
+}
 pub fn exp() -> impl TParser<ir::Exp> {
     recursive(|exp| {
-        literal_value(exp).map(|val| {
+        literal_value(exp.clone()).map(|val| {
             Exp::LiteralValue(val)
         })
+            .or(
+                fn_call(exp.clone())
+                    .map(|fn_call| {
+                        Exp::FnCall(fn_call)
+                    })
+            )
     }).labelled("expression")
 }
 pub fn identifier() -> impl TParser<ir::IdentifierT> {
