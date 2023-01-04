@@ -1,7 +1,7 @@
 use simple_error::SimpleError;
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct VecTuple1<T>(pub T, pub Vec<T>);
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct VecTuple2<T>(pub (T, T), pub Vec<T>);
 
 impl<T> TryFrom<Vec<T>> for VecTuple1<T> {

@@ -11,10 +11,6 @@ pub struct TSpan {
 }
 
 impl TSpan {
-    #[cfg(test)]
-    pub fn empty() -> Self {
-        Self::new(SrcId::empty(), 0..0)
-    }
 
     pub fn src(&self) -> usize { self.src }
 

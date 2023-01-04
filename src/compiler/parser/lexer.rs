@@ -48,7 +48,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, TSpan)>, Error = Error> {
         .at_least(1)
         .collect::<String>()
         .map(Token::Operator);
-    let control_chars = one_of("()[]{};:,").map(|c| Token::Control(c));
+    let control_chars = one_of("()[]{};:,.").map(|c| Token::Control(c));
     let identifier = text::ident().map(|ident: String| match ident.as_str() {
         "fn" => Token::Fn,
         "let" => Token::Let,

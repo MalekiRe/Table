@@ -29,6 +29,8 @@ fn main() {
     test_fn_call();
     test_not_thing();
     test_binary_op();
+    test_exp_block();
+    test_fn_dec();
 }
 pub fn test_table_dec() {
     lex("[a: 1, 2, true, 2, Som_randIden212ifer: \"yo yo yo evereybody\", some_var: my_var]".to_string());
@@ -41,6 +43,21 @@ pub fn test_fn_call() {
 }
 pub fn test_not_thing() {
     lex("!some_func(1, my_identifier)".to_string());
+}
+pub fn test_exp_block() {
+    lex("{ first_func(1, my_var); second_fun([a: 1, 3, something]); third_func() }".to_string());
+}
+pub fn test_fn_dec() {
+    lex(r#"
+    {
+    fn my_function_1(a, b, c) {
+        do_something(hi);
+        do_another_thing.yellow();
+    }
+    fn test_fn(a, b) a + b
+    1
+    }
+    "#.to_string());
 }
 pub fn lex(file: String) {
     let file_holder = FileHolder::from(file.clone());

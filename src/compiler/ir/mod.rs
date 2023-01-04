@@ -6,7 +6,7 @@ pub type IdentifierT = String;
 pub type BExp = Box<Exp>;
 pub type BStatement = Box<Statement>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Exp {
     ExpBlock(ExpBlock),
     LiteralValue(LiteralValue),
@@ -16,18 +16,18 @@ pub enum Exp {
     UnaryPrefixOperation(UnaryPrefixOperation),
     BinaryOperation(BinaryOperation),
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Block {
     ExpBlock(ExpBlock),
     StatementBlock(StatementBlock),
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum MaybeEmptyBlock {
     ExpBlock(ExpBlock),
     StatementBlock(StatementBlock),
     Empty,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TableOperation {
     /// this is like ```(a: my_thing, 1, "hi")[1]```
     TableIndexing{
@@ -50,7 +50,7 @@ pub enum TableOperation {
         method: FnCall
     }
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum LiteralValue {
     Decimal(f64),
     Integer(isize),
@@ -58,49 +58,49 @@ pub enum LiteralValue {
     Table(TableLiteral),
     Boolean(bool),
 }
-#[derive(Debug)]
-pub struct ExpBlock(Vec<BStatement>, BExp);
-#[derive(Debug)]
-pub struct StatementBlock(VecTuple1<BStatement>);
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
+pub struct ExpBlock(pub Vec<BStatement>, pub BExp);
+#[derive(Debug, PartialEq)]
+pub struct StatementBlock(pub VecTuple1<BStatement>);
+#[derive(Debug, PartialEq)]
 pub enum MaybeEmptyStatementBlock {
     StatementBlock(StatementBlock),
     Empty,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct UnaryPostfixOperation {
     exp: BExp,
     op: UnaryPostfixOp,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct UnaryPrefixOperation {
     pub op: UnaryPrefixOp,
     pub exp: BExp,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BinaryOperation {
     pub(crate) lhs: BExp,
     pub(crate) op: BinaryOp,
     pub(crate) rhs: BExp,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum UnaryPostfixOp {
     /// `foo++`
     Increment,
     /// `foo--`
     Decrement,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum UnaryPrefixOp {
     /// `!foo`
     Not,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BinaryOp {
     Math(MathOp),
     Equality(EqualityOp),
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum MathOp {
     /// `foo + bar`
     Add,
@@ -123,7 +123,7 @@ pub enum MathOp {
     /// `foo %= bar`
     ModuloEqual,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EqualityOp {
     /// `foo == bar`
     EqualsEquals,
@@ -142,7 +142,7 @@ pub enum EqualityOp {
     /// `foo | bar`
     Or,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     FnDec(FnDec),
     FnImport(FnImport),
@@ -151,31 +151,31 @@ pub enum Statement {
     StatementBlock(MaybeEmptyStatementBlock),
     UnaryPostfixOperation(UnaryPostfixOperation),
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FnImport {
     identifier: IdentifierT,
     args: Vec<IdentifierT>,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FnDec {
-    identifier: IdentifierT,
-    args: Vec<IdentifierT>,
-    body: Block,
-    exported: bool,
+    pub(crate) identifier: IdentifierT,
+    pub(crate) args: Vec<IdentifierT>,
+    pub(crate) body: Block,
+    pub(crate) exported: bool,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FnCall {
     pub(crate) identifier: IdentifierT,
     pub(crate) args: Vec<BExp>,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct LetStatement {
     identifier: IdentifierT,
     lhs: BExp,
 }
 
 pub type TableLiteral = Vec<TableKeyTemp>;
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TableKeyTemp {
     pub(crate) ident: Option<IdentifierT>,
     pub(crate) exp: BExp,

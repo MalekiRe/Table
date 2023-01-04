@@ -1,16 +1,17 @@
 use chumsky::{Span, Stream, Parser, select};
 use chumsky::prelude::{end, filter_map, just, recursive, Recursive, skip_until};
 use crate::compiler::parser::lexer::lexer;
-use crate::{do_err_messages, ir, Token};
+use crate::{do_err_messages, ir, StatementBlock, Token, VecTuple1};
 use crate::compiler::ir::{BExp, TableOperation};
 use crate::compiler::ir::TableOperation::{TableFieldAccess, TableStaticFuncCalling};
 use crate::compiler::parser::error::{Error, ErrorKind, Pattern};
 use crate::compiler::parser::span::TSpan;
-use crate::ir::{BinaryOp, BinaryOperation, EqualityOp, Exp, ExpBlock, File, FnCall, LiteralValue, MathOp, TableKeyTemp, UnaryPrefixOp, UnaryPrefixOperation};
+use crate::ir::{BinaryOp, BinaryOperation, Block, BStatement, EqualityOp, Exp, ExpBlock, File, FnCall, FnDec, LiteralValue, MathOp, Statement, TableKeyTemp, UnaryPrefixOp, UnaryPrefixOperation};
 
 pub mod lexer;
 pub mod error;
 mod span;
+mod testing;
 
 pub trait TParser<T> = chumsky::Parser<Token, T, Error = Error> + Clone;
 pub fn parse_and_lex(src: String) -> (Option<ir::Exp>, Vec<Error>) {
@@ -28,7 +29,7 @@ pub fn parse_and_lex(src: String) -> (Option<ir::Exp>, Vec<Error>) {
         None => return (None, lex_errors),
         Some(tokens) => tokens,
     };
-    println!("tokens: {:#?}", tokens);
+    //println!("tokens: {:#?}", tokens);
 
     let (ir, mut parser_errors) = exp().then_ignore(end()).parse_recovery(chumsky::Stream::from_iter(my_span, tokens.into_iter()));
     lex_errors.append(&mut parser_errors);
@@ -85,22 +86,22 @@ pub fn unary_prefix_operation(exp: impl TParser<Exp>) -> impl TParser<UnaryPrefi
             }
         })
 }
-// pub fn exp_block(exp: impl TParser<Exp>) -> impl TParser<ExpBlock> {
-//     unimplemented!()
-// }
 pub fn exp() -> impl TParser<ir::Exp> {
     recursive(|exp| {
+        let statement = statement(exp.clone());
         let literal_value = literal_value(exp.clone()).map(Exp::LiteralValue);
         let variable = identifier().map(Exp::Variable);
         let unary_prefix_operation = unary_prefix_operation(exp.clone()).map(Exp::UnaryPrefixOperation);
         let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
         let table_operation = table_operation(exp.clone()).map(Exp::TableOperation);
+        let exp_block = exp_block(exp.clone(), statement.clone()).map(Exp::ExpBlock);
 
         let pre_ops_exp = literal_value.clone()
+            .or(table_operation.clone())
             .or(fn_call.clone())
             .or(variable.clone())
             .or(unary_prefix_operation.clone())
-            .or(table_operation.clone());
+            .or(exp_block.clone());
 
         let binary_operation = binary_operation(pre_ops_exp.clone()).map(Exp::BinaryOperation);
         binary_operation.or(pre_ops_exp)
@@ -108,28 +109,35 @@ pub fn exp() -> impl TParser<ir::Exp> {
     }).labelled("expression")
 }
 pub fn table_operation(exp: impl TParser<Exp>) -> impl TParser<TableOperation> {
-    let table_indexing = exp.clone().then(exp.clone()).map(|(table, index)| {
+    let fn_call_exp = fn_call(exp.clone()).map(Exp::FnCall);
+    let literal_value = literal_value(exp.clone()).map(Exp::LiteralValue);
+    let variable = identifier().map(Exp::Variable);
+    let table = fn_call_exp.clone().or(literal_value).clone().or(variable.clone());
+    let table_indexing = table.clone().then(exp.clone().delimited_by(just(Token::Control('[')), just(Token::Control(']')))).map(|(table, index)| {
        TableOperation::TableIndexing { table: Box::new(table), index: Box::new(index) }
     });
-    let table_method_calling = exp.clone().then_ignore(just(Token::Control('.'))).then(fn_call(exp.clone())).map(|(table, method)|{
+    let table_method_calling = table.clone().then_ignore(just(Token::Control('.'))).then(fn_call(exp.clone())).map(|(table, method)|{
        TableOperation::TableMethodCalling {
            table: Box::new(table),
            method
        }
     });
-    let table_field_access = exp.clone().then_ignore(just(Token::Control('.'))).then(identifier()).map(|(table, field)| {
+    let table_field_access = table.clone().then_ignore(just(Token::Control('.'))).then(identifier()).map(|(table, field)| {
        TableFieldAccess {
            table: Box::new(table),
            field
        }
     });
-    let table_static_fn_calling = exp.clone().then_ignore(just(Token::Control(':'))).then_ignore(just(Token::Control(':'))).then(fn_call(exp.clone())).map(|(table, method)|{
+    let table_static_fn_calling = table.clone().then_ignore(just(Token::Control(':'))).then_ignore(just(Token::Control(':'))).then(fn_call(exp.clone())).map(|(table, method)|{
        TableStaticFuncCalling {
            table: Box::new(table),
            method
        }
     });
-    table_indexing.or(table_method_calling).or(table_field_access).or(table_static_fn_calling)
+    table_indexing
+         .or(table_method_calling)
+         .or(table_field_access)
+         .or(table_static_fn_calling)
 }
 pub fn binary_operation(exp: impl TParser<Exp>) -> impl TParser<BinaryOperation> {
     //TODO Actual order of operations
@@ -174,4 +182,46 @@ pub fn identifier() -> impl TParser<ir::IdentifierT> {
         _ => Err(error::Error::new(ErrorKind::Unexpected(Pattern::TermIdent), span)),
     });
     ident
+}
+//STATEMENTS and related stuff mostly below Expressions and related stuff mostly above
+pub fn statement(exp: impl TParser<ir::Exp> + 'static) -> impl TParser<ir::Statement> {
+    recursive(|statement| {
+        exp_statement(exp.clone())
+            .or(fn_dec(exp.clone(), statement.clone()).map(Statement::FnDec))
+    })
+}
+pub fn exp_statement(exp: impl TParser<Exp>) -> impl TParser<Statement> {
+    exp.clone().then_ignore(just(Token::Control(';')))
+        .map(Box::new).map(Statement::ExpStatement)
+}
+pub fn fn_dec(exp: impl TParser<Exp>, statement: impl TParser<Statement>) -> impl TParser<FnDec> {
+    let latter_half = just(Token::Fn)
+        .ignore_then(identifier())
+        .then(identifier().separated_by(just(Token::Control(','))).allow_trailing().delimited_by(just(Token::Control('(')), just(Token::Control(')'))))
+        .then(block(exp.clone(), statement.clone()));
+    just(Token::Export).or_not().then(latter_half.clone())
+        .map(|(possible_export, ((identifier, args), block))| {
+            FnDec {
+                identifier,
+                args,
+                body: block,
+                exported: possible_export.is_some()
+            }
+        })
+}
+pub fn exp_block(exp: impl TParser<Exp>, statement: impl TParser<Statement>) -> impl TParser<ExpBlock> {
+    statement.repeated().then(exp).delimited_by(just(Token::Control('{')), just(Token::Control('}')))
+        .map(|(statements, exp)| {
+            ExpBlock(statements.into_iter().map(Box::new).collect(), Box::new(exp))
+        })
+}
+pub fn statement_block(statement: impl TParser<Statement>) -> impl TParser<StatementBlock> {
+    statement.repeated().at_least(1).map(|statements| {
+      StatementBlock(VecTuple1::try_from(statements.into_iter().map(Box::new).collect::<Vec<BStatement>>()).unwrap())
+    })
+}
+pub fn block(exp: impl TParser<Exp>, statement: impl TParser<Statement>) -> impl TParser<Block> {
+    exp_block(exp.clone(), statement.clone())
+        .map(Block::ExpBlock)
+        .or(statement_block(statement.clone()).map(Block::StatementBlock))
 }
