@@ -90,27 +90,21 @@ pub fn unary_prefix_operation(exp: impl TParser<Exp>) -> impl TParser<UnaryPrefi
 // }
 pub fn exp() -> impl TParser<ir::Exp> {
     recursive(|exp| {
-        literal_value(exp.clone()).map(|val| {
-            Exp::LiteralValue(val)
-        })
-            .or(
-                fn_call(exp.clone())
-                    .map(|fn_call| {
-                        Exp::FnCall(fn_call)
-                    })
-            )
-            .or(identifier().map(|identifier| {
-                Exp::Variable(identifier)
-            }))
-            .or(unary_prefix_operation(exp.clone()).map(|op| {
-                Exp::UnaryPrefixOperation(op)
-            }))
-            .or(table_operation(exp.clone()).map(|table_op| {
-                Exp::TableOperation(table_op)
-            }))
-            .or(binary_operation(exp.clone()).map(|op| {
-                Exp::BinaryOperation(op)
-            }))
+        let literal_value = literal_value(exp.clone()).map(Exp::LiteralValue);
+        let variable = identifier().map(Exp::Variable);
+        let unary_prefix_operation = unary_prefix_operation(exp.clone()).map(Exp::UnaryPrefixOperation);
+        let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
+        let table_operation = table_operation(exp.clone()).map(Exp::TableOperation);
+
+        let pre_ops_exp = literal_value.clone()
+            .or(fn_call.clone())
+            .or(variable.clone())
+            .or(unary_prefix_operation.clone())
+            .or(table_operation.clone());
+
+        let binary_operation = binary_operation(pre_ops_exp.clone()).map(Exp::BinaryOperation);
+        binary_operation.or(pre_ops_exp)
+
     }).labelled("expression")
 }
 pub fn table_operation(exp: impl TParser<Exp>) -> impl TParser<TableOperation> {
