@@ -4,7 +4,7 @@ use crate::compiler::parser::lexer::lexer;
 use crate::{do_err_messages, ir, Token};
 use crate::compiler::parser::error::{Error, ErrorKind, Pattern};
 use crate::compiler::parser::span::TSpan;
-use crate::ir::{Exp, ExpBlock, File, FnCall, LiteralValue, TableKeyTemp, UnaryPrefixOp, UnaryPrefixOperation};
+use crate::ir::{BinaryOp, BinaryOperation, EqualityOp, Exp, ExpBlock, File, FnCall, LiteralValue, MathOp, TableKeyTemp, UnaryPrefixOp, UnaryPrefixOperation};
 
 pub mod lexer;
 pub mod error;
@@ -104,6 +104,27 @@ pub fn exp() -> impl TParser<ir::Exp> {
                 Exp::UnaryPrefixOperation(op)
             }))
     }).labelled("expression")
+}
+pub fn binary_operation(exp: impl TParser<Exp>) -> impl TParser<BinaryOperation> {
+    let binary_op = select!{
+        Token::Operator(operator) => {
+            match operator {
+                "+" => BinaryOp::Math(MathOp::Add),
+                "-" => BinaryOp::Math(MathOp::Subtract),
+                "/" => BinaryOp::Math(MathOp::Divide),
+                "*" => BinaryOp::Math(MathOp::Multiply),
+                "%" => BinaryOp::Math(MathOp::Modulo),
+                "+=" => BinaryOp::Math(MathOp::AddEqual),
+                "-=" => BinaryOp::Math(MathOp::MinusEqual),
+                "/=" => BinaryOp::Math(MathOp::DivideEqual),
+                "*=" => BinaryOp::Math(MathOp::MultiplyEqual),
+                "%=" => BinaryOp::Math(MathOp::ModuloEqual),
+
+                "==" => BinaryOp::Equality(EqualityOp::EqualsEquals),
+                "!=" => BinaryOp::Equality(EqualityOp::EqualsNot),
+            }
+        }
+    };
 }
 pub fn identifier() -> impl TParser<ir::IdentifierT> {
     let ident = filter_map(|span, tok| match tok {
