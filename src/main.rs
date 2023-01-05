@@ -18,6 +18,7 @@ use crate::virtual_machine::vm::Vm;
 mod virtual_machine;
 mod compiler;
 mod misc;
+mod register_machine;
 
 fn main() {
     let mut vm = Vm::new();

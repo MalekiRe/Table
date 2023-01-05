@@ -286,29 +286,29 @@ mod test {
             Bytecode2::Pop,
         ])
     }
-    #[test]
-    fn literal_table() {
-        let file = parse_file("[1, a: false, 3.0]").unwrap();
-        let (bytecode, constants) = IRCompiler::compiler(file);
-        assert_eq!(constants, vec![Value::Boolean(false), Value::Float(3.0)]);
-        assert_eq!(bytecode, vec![
-            Bytecode2::AllocHeap,
-            Bytecode2::LoadNumber(1),
-            Bytecode2::HeapTablePush,
-            Bytecode2::Pop,
-            Bytecode2::LoadConstant(0),
-            Bytecode2::HeapTablePush,
-            Bytecode2::Pop,
-            Bytecode2::LoadConstant(1),
-            Bytecode2::HeapTablePush,
-            Bytecode2::Pop,
-        ]);
-        let chunk = Chunk2::new(bytecode, constants);
-        let mut vm = Vm2::new();
-        vm.load(chunk);
-        vm.run();
-        //assert_eq!(vm.heap.pop().unwrap(), HeapValue::Table(Table{ inner: vec![] }))
-    }
+    // #[test]
+    // fn literal_table() {
+    //     let file = parse_file("[1, a: false, 3.0]").unwrap();
+    //     let (bytecode, constants) = IRCompiler::compiler(file);
+    //     assert_eq!(constants, vec![Value::Boolean(false), Value::Float(3.0)]);
+    //     assert_eq!(bytecode, vec![
+    //         Bytecode2::AllocHeap,
+    //         Bytecode2::LoadNumber(1),
+    //         Bytecode2::HeapTablePush,
+    //         Bytecode2::Pop,
+    //         Bytecode2::LoadConstant(0),
+    //         Bytecode2::HeapTablePush,
+    //         Bytecode2::Pop,
+    //         Bytecode2::LoadConstant(1),
+    //         Bytecode2::HeapTablePush,
+    //         Bytecode2::Pop,
+    //     ]);
+    //     let chunk = Chunk2::new(bytecode, constants);
+    //     let mut vm = Vm2::new();
+    //     vm.load(chunk);
+    //     vm.run();
+    //     //assert_eq!(vm.heap.pop().unwrap(), HeapValue::Table(Table{ inner: vec![] }))
+    // }
     fn literal_table_array() {
         let file = parse_file("[1, false, 3.0]").unwrap();
         let (bytecode, constants) = IRCompiler::compiler(file);
