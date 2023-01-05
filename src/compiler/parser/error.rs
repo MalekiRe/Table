@@ -13,7 +13,7 @@ pub enum ErrorKind {
 }
 
 #[derive(Debug)]
-pub struct Error {
+pub struct ErrorT {
     kind: ErrorKind,
     span: span::TSpan,
     while_parsing: Option<(span::TSpan, &'static str)>,
@@ -21,7 +21,7 @@ pub struct Error {
     label: Option<&'static str>,
 }
 
-impl Error {
+impl ErrorT {
     pub fn expected(mut self, pat: Pattern) -> Self {
         self.expected.insert(pat);
         self
@@ -33,7 +33,7 @@ impl Error {
     }
 }
 
-impl Error {
+impl ErrorT {
     pub fn new(kind: ErrorKind, span: span::TSpan) -> Self {
         Self {
             kind,
@@ -114,7 +114,7 @@ impl Error {
     }
 }
 
-impl PartialEq for Error {
+impl PartialEq for ErrorT {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind
             && self.span == other.span
@@ -122,7 +122,7 @@ impl PartialEq for Error {
     }
 }
 
-impl<T: Into<Pattern>> chumsky::Error<T> for Error {
+impl<T: Into<Pattern>> chumsky::Error<T> for ErrorT {
     type Span = span::TSpan;
     type Label = &'static str;
 
@@ -172,7 +172,7 @@ impl<T: Into<Pattern>> chumsky::Error<T> for Error {
     }
 
     fn merge(self, other: Self) -> Self {
-        Error::merge(self, other)
+        ErrorT::merge(self, other)
     }
 }
 

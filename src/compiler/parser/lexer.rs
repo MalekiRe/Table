@@ -1,7 +1,7 @@
 use chumsky::prelude::{filter, just, one_of, Simple, skip_then_retry_until, take_until};
 use chumsky::{Parser, text};
 use chumsky::text::TextParser;
-use crate::compiler::parser::error::Error;
+use crate::compiler::parser::error::ErrorT;
 use crate::compiler::parser::span::TSpan;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -28,7 +28,7 @@ pub enum BooleanValues {
     False
 }
 
-pub fn lexer() -> impl Parser<char, Vec<(Token, TSpan)>, Error = Error> {
+pub fn lexer() -> impl Parser<char, Vec<(Token, TSpan)>, Error =ErrorT> {
     let decimal = text::int(10)
         .chain::<char, _, _>(just('.').chain(text::digits(10)))
         .collect::<String>()

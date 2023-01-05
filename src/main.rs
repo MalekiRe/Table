@@ -2,7 +2,7 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::prelude::Simple;
 use crate::compiler::{FileHolder, ir};
-use crate::compiler::parser::error::Error;
+use crate::compiler::parser::error::ErrorT;
 use crate::compiler::parser::lexer::Token;
 use crate::compiler::parser::parse_exp;
 use crate::ir::{Exp, LetStatement, StatementBlock};
@@ -70,7 +70,7 @@ pub fn lex(file: String) {
         }
     }
 }
-pub fn print_errors(errors: Vec<Error>, mut file_holder: FileHolder) {
+pub fn print_errors(errors: Vec<ErrorT>, mut file_holder: FileHolder) {
     for error in errors {
         error.write(&mut file_holder, std::io::stderr());
     }

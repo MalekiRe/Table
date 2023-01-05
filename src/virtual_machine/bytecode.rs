@@ -30,6 +30,39 @@ pub enum Bytecode {
     RegisterSet(usize),
     RegisterGet(usize),
 }
+
+#[derive(Debug, PartialEq)]
+pub enum Bytecode2 {
+    /// adds to the heap vec, and pushes a usize for it's index onto the stack.
+    AllocHeap,
+    /// pushes this number onto the stack as a Value::Integer,
+    LoadNumber(usize),
+    /// grabs a constant at `index[usize]` and pushes onto the stack.
+    LoadConstant(usize),
+    /// grabs a Value at `heap[usize]` and pushes onto the stack.
+    LoadHeapValue(usize),
+    /// peeks the index of the heap and pushes the value at `heap[index]` onto the stack.
+    LoadIndexHeapValue,
+    /// peeks at value at `usize` length away from the top of the stack and pushes it onto the top of the stack
+    Peek(usize),
+    /// pops most recent value off of stack.
+    Pop,
+    /// peeks `value`, `table_index` and `heap_index` and `heap[heap_index][table_index] = value`
+    HeapTableSetIndex,
+    /// peeks and `table_index` and `heap_index` and pushes `heap[heap_index][table_index]`
+    HeapTableGetIndex,
+    /// peeks `value` and `heap_index` and `heap[heap_index].push(value)`
+    HeapTablePush,
+    /// pops `value` and `register[usize] = value`
+    RegisterSet(usize),
+    /// pushes `register[usize]`
+    RegisterGet(usize),
+    /// pops off jump position off stack
+    Jump(usize),
+    /// pops `jump_condition` and jumps if `jump_condition` true to `usize`
+    JumpIf(usize),
+}
+
 impl Bytecode {
     pub fn convert_to_bytes(bytecode: &[Bytecode]) -> Vec<u8> {
         //TODO do this on the stack instead of the heap.

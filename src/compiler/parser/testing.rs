@@ -133,7 +133,7 @@ pub fn parse_file(file: &str) -> Option<ir::File> {
     assert_eq!(errors.len(), 0, "{:?}", get_errors_display(errors, file_holder));
     ir
 }
-pub fn get_errors_display(errors: Vec<parser::Error>, mut file_holder: FileHolder) -> String {
+pub fn get_errors_display(errors: Vec<parser::ErrorT>, mut file_holder: FileHolder) -> String {
     let mut str = Vec::new();
     for error in errors {
         error.write(&mut file_holder, std::io::stderr());

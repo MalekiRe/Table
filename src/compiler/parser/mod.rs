@@ -6,7 +6,7 @@ use crate::{do_err_messages, ir, LetStatement, StatementBlock, Token, VecTuple1}
 use crate::compiler::ir::{BExp, TableOperation};
 use crate::compiler::ir::TableOperation::{TableFieldAccess, TableStaticFuncCalling};
 use crate::compiler::parser;
-use crate::compiler::parser::error::{Error, ErrorKind, Pattern};
+use crate::compiler::parser::error::{ErrorT, ErrorKind, Pattern};
 use crate::compiler::parser::span::TSpan;
 use crate::ir::{BinaryOp, BinaryOperation, Block, BStatement, EqualityOp, Exp, ExpBlock, File, FnBody, FnCall, FnDec, FnImport, LiteralValue, MathOp, OptionalBlock, OptionalStatementBlock, Statement, TableKeyTemp, UnaryPrefixOp, UnaryPrefixOperation};
 
@@ -15,8 +15,8 @@ pub mod error;
 mod span;
 mod testing;
 
-pub trait TParser<T> = chumsky::Parser<Token, T, Error = Error> + Clone;
-pub fn parse_exp(src: String) -> (Option<ir::Exp>, Vec<Error>) {
+pub trait TParser<T> = chumsky::Parser<Token, T, Error =ErrorT> + Clone;
+pub fn parse_exp(src: String) -> (Option<ir::Exp>, Vec<ErrorT>) {
     let len = src.chars().count();
     let my_span = Span::new(0, len..len);
     let (tokens, mut lex_errors) = lexer()
@@ -40,7 +40,7 @@ pub fn parse_exp(src: String) -> (Option<ir::Exp>, Vec<Error>) {
         Some(ir) => (Some(ir), lex_errors)
     }
 }
-pub fn parse_block(src: String) -> (Option<ir::File>, Vec<Error>) {
+pub fn parse_block(src: String) -> (Option<ir::File>, Vec<ErrorT>) {
     let len = src.chars().count();
     let my_span = Span::new(0, len..len);
     let (tokens, mut lex_errors) = lexer()
@@ -89,7 +89,7 @@ pub fn literal_value(exp: impl TParser<ir::Exp>) -> impl TParser<ir::LiteralValu
     let table = table.map(|things|{
         ir::LiteralValue::Table(things)
     });
-    first.or(table).map_err(|e: Error| e.expected(Pattern::Literal))
+    first.or(table).map_err(|e: ErrorT| e.expected(Pattern::Literal))
         .labelled("literal")
 }
 pub fn fn_call(exp: impl TParser<Exp>) -> impl TParser<ir::FnCall> {
@@ -205,7 +205,7 @@ pub fn binary_operation(exp: impl TParser<Exp>) -> impl TParser<BinaryOperation>
 pub fn identifier() -> impl TParser<ir::IdentifierT> {
     let ident = filter_map(|span, tok| match tok {
         Token::Identifier(ident) => Ok(ident.clone()),
-        _ => Err(error::Error::new(ErrorKind::Unexpected(Pattern::TermIdent), span)),
+        _ => Err(error::ErrorT::new(ErrorKind::Unexpected(Pattern::TermIdent), span)),
     });
     ident
 }

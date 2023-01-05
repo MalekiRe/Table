@@ -3,7 +3,7 @@ use crate::virtual_machine::table::Table;
 
 pub type TablePointer = usize;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Value {
     Table(TablePointer),
     Int(i64),
