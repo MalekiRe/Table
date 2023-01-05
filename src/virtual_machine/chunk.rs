@@ -1,3 +1,4 @@
+use crate::bytecode::Bytecode2;
 use crate::virtual_machine::bytecode::byte_array_to_usize;
 use crate::virtual_machine::util::PTR_WIDTH;
 use crate::virtual_machine::value::Value;
@@ -13,5 +14,21 @@ impl Chunk {
         let usize = byte_array_to_usize(self.instructions[self.ptr..self.ptr+PTR_WIDTH].try_into().unwrap());
         self.ptr += PTR_WIDTH;
         usize
+    }
+}
+pub struct Chunk2 {
+    pub ptr: usize,
+    pub instructions: Vec<Bytecode2>,
+    pub stack: Vec<Value>,
+    pub constants: Vec<Value>,
+}
+impl Chunk2 {
+    pub fn new(instructions: Vec<Bytecode2>, constants: Vec<Value>) -> Self {
+        Self {
+            ptr: 0,
+            instructions,
+            stack: vec![],
+            constants
+        }
     }
 }

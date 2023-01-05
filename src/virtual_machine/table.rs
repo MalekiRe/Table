@@ -1,9 +1,11 @@
 use std::slice::Iter;
 use crate::virtual_machine::value::Value;
 
+#[derive(Debug, PartialEq)]
 pub struct Table {
     pub inner: Vec<TableKey>
 }
+#[derive(Debug, PartialEq)]
 pub enum TableKey {
     Str(String, Value),
     NoStr(Value),

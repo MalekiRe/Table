@@ -1,9 +1,10 @@
+use crate::bytecode::Bytecode2;
 use crate::virtual_machine::bytecode;
 use crate::virtual_machine::bytecode::usize_to_byte_array;
-use crate::virtual_machine::chunk::Chunk;
+use crate::virtual_machine::chunk::{Chunk, Chunk2};
 use crate::virtual_machine::table::{Table, TableKey};
 use crate::virtual_machine::util::PTR_WIDTH;
-use crate::virtual_machine::value::Value;
+use crate::virtual_machine::value::{HeapValue, Value};
 
 pub struct Vm {
     chunks: Vec<Chunk>,
@@ -180,4 +181,98 @@ pub fn vals_to_u8_bytecode(values: Vec<Value>) -> Vec<u8> {
         index += 1;
     }
     bytes
+}
+
+pub struct Vm2 {
+    pub heap: Vec<HeapValue>,
+    pub chunks: Vec<Chunk2>,
+}
+impl Vm2 {
+    pub fn new() -> Self {
+        Self {
+            heap: vec![],
+            chunks: vec![]
+        }
+    }
+    pub fn load(&mut self, chunk: Chunk2) {
+        self.chunks.push(chunk);
+    }
+    pub fn unload(&mut self) {
+        self.chunks.pop().unwrap();
+    }
+    pub fn chunk(&self) -> &Chunk2 {
+        self.chunks.last().unwrap()
+    }
+    pub fn chunk_mut(&mut self) -> &mut Chunk2 {
+        self.chunks.last_mut().unwrap()
+    }
+    pub fn push(&mut self, value: Value) {
+        self.chunk_mut().stack.push(value);
+    }
+    pub fn pop(&mut self) -> Value {
+        self.chunk_mut().stack.pop().unwrap()
+    }
+    pub fn peek(&self, index: usize) -> Value {
+        let len = self.chunk().stack.len();
+        *self.chunk().stack.get(len - index).unwrap()
+    }
+    pub fn get_constant(&self, index: usize) -> Value {
+        *self.chunk().constants.get(index).unwrap()
+    }
+    pub fn get_table(&mut self, index: usize) -> &mut Table {
+        match self.heap.get_mut(index).unwrap() {
+            HeapValue::Value(_) => panic!(),
+            HeapValue::Table(table) => table,
+        }
+    }
+    pub fn run(&mut self) {
+        loop {
+            if self.chunk().ptr == self.chunk().instructions.len() {
+                break;
+            }
+            self.chunk_mut().ptr += 1;
+            match *self.chunk().instructions.get(&self.chunk().ptr - 1).unwrap() {
+                Bytecode2::AllocHeap => {
+                    self.heap.push(HeapValue::Table(Table::default()));
+                    self.push(Value::Int((self.heap.len()-1) as i64))
+                },
+                Bytecode2::LoadNumber(number) => {
+                    self.push(Value::Int(number as i64))
+                }
+                Bytecode2::LoadConstant(const_index) => {
+                    let value = self.get_constant(const_index);
+                    self.push(value);
+                }
+                Bytecode2::LoadHeapValue(_) => todo!(),
+                Bytecode2::LoadIndexHeapValue => todo!(),
+                Bytecode2::Peek(_) => todo!(),
+                Bytecode2::Pop => {
+                    self.pop();
+                }
+                Bytecode2::HeapTableSetIndex => {
+                    let value = self.peek(0);
+                    let table_index = val_to_usize(self.peek(1)).unwrap();
+                    let heap_index = val_to_usize(self.peek(2)).unwrap();
+                    let table = self.get_table(heap_index);
+                    table.indexed_set(table_index, value);
+                }
+                Bytecode2::HeapTableGetIndex => todo!(),
+                Bytecode2::HeapTablePush => {
+                    let value = self.peek(0);
+                    let heap_index = val_to_usize(self.peek(2)).unwrap();
+                    let table = self.get_table(heap_index);
+                    table.inner.push(TableKey::NoStr(value));
+                }
+                Bytecode2::HeapTablePushWithKey => {
+                    let value = self.peek(0);
+                    let key = val_to_usize(self.peek(1)).unwrap();
+
+                }
+                Bytecode2::RegisterSet(_) => todo!(),
+                Bytecode2::RegisterGet(_) => todo!(),
+                Bytecode2::Jump(_) => todo!(),
+                Bytecode2::JumpIf(_) => todo!(),
+            }
+        }
+    }
 }

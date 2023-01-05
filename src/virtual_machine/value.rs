@@ -11,6 +11,11 @@ pub enum Value {
     Boolean(bool),
     EmptyTable,
 }
+#[derive(Debug, PartialEq)]
+pub enum HeapValue {
+    Value(Value),
+    Table(Table)
+}
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {

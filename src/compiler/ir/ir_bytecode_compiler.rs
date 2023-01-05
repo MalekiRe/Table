@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use crate::{Bytecode, ErrorT, Exp, LetStatement, Value};
 use crate::bytecode::Bytecode2;
-use crate::bytecode::Bytecode2::{HeapTablePush, Jump, LoadConstant, LoadNumber, Pop, RegisterSet};
+use crate::bytecode::Bytecode2::{HeapTablePush, HeapTablePushWithKey, Jump, LoadConstant, LoadNumber, Pop, RegisterSet};
 use crate::compiler::{ir, parser};
 use crate::compiler::ir::{BStatement, ExpBlock, File, Statement, StatementBlock};
-use crate::ir::{FnImport, IdentifierT, LiteralValue, TableLiteral};
+use crate::ir::{FnImport, IdentifierT, LiteralValue, TableKeyTemp, TableLiteral};
 use crate::misc::VecTuple1;
 
 pub struct IRCompiler {
@@ -149,7 +149,7 @@ impl IRCompiler {
         match value {
             LiteralValue::Decimal(decimal) => self.push_decimal(decimal),
             LiteralValue::Integer(integer) => self.push_integer(integer),
-            LiteralValue::String(string) => todo!(),
+            LiteralValue::String(string) => self.push_string_literal(string),
             LiteralValue::Table(table) => self.push_table_literal(table),
             LiteralValue::Boolean(bool) => self.push_bool(bool),
         }
@@ -163,7 +163,7 @@ impl IRCompiler {
             Bytecode2::AllocHeap | LoadNumber(_) | LoadConstant(_) |
             Bytecode2::LoadHeapValue(_) | Bytecode2::LoadIndexHeapValue |
             Bytecode2::Peek(_) | Bytecode2::HeapTableGetIndex |
-            Bytecode2::RegisterGet(_) => {
+            Bytecode2::RegisterGet(_) | HeapTablePushWithKey => {
                 self.stack_size += 1;
             }
             Bytecode2::HeapTablePush | RegisterSet(_) | Jump(_) |
@@ -177,10 +177,30 @@ impl IRCompiler {
         self.bytecode.push(byte)
     }
     fn push_table_literal(&mut self, table_literal: TableLiteral) {
-        self.byte_push(Bytecode2::AllocHeap);
+        self.alloc_heap();
         for thing in table_literal.into_iter() {
             //TODO add string keys
-            self.exp(*thing.exp);
+            match thing {
+                TableKeyTemp { ident, exp } => {
+                    self.exp(*exp);
+                    match ident {
+                        None => {
+                            self.heap_table_push();
+                        }
+                        Some(ident) => {
+                            self.push_string_literal(ident);
+                            self.heap_table_push_with_key()
+                        }
+                    }
+                }
+            }
+            self.pop();
+        }
+    }
+    fn push_string_literal(&mut self, string: String) {
+        self.alloc_heap();
+        for char in string.chars() {
+            self.push_integer(char as isize);
             self.heap_table_push();
             self.pop();
         }
@@ -194,7 +214,7 @@ impl IRCompiler {
             }
             Some(index) => index,
         };
-        self.byte_push(Bytecode2::LoadConstant(index))
+        self.load_constant(index);
     }
     fn push_integer(&mut self, integer: isize) {
         self.load_number(integer);
@@ -213,6 +233,9 @@ impl IRCompiler {
     fn heap_table_push(&mut self) {
         self.byte_push(HeapTablePush);
     }
+    fn heap_table_push_with_key(&mut self) {
+        self.byte_push(HeapTablePushWithKey);
+    }
     fn pop(&mut self) {
         self.byte_push(Pop);
     }
@@ -222,6 +245,9 @@ impl IRCompiler {
     fn load_number(&mut self, number: isize) {
         self.byte_push(LoadNumber(number as usize))
     }
+    fn alloc_heap(&mut self) {
+        self.byte_push(Bytecode2::AllocHeap);
+    }
 }
 pub type TablePointer = usize;
 #[cfg(test)]
@@ -229,6 +255,10 @@ mod test {
     use crate::bytecode::Bytecode2;
     use crate::ir::ir_bytecode_compiler::{IRCompiler, parse_file};
     use crate::Value;
+    use crate::virtual_machine::chunk::Chunk2;
+    use crate::virtual_machine::table::{Table, TableKey};
+    use crate::virtual_machine::value::HeapValue;
+    use crate::virtual_machine::vm::Vm2;
 
     #[test]
     fn literal_exp() {
@@ -244,6 +274,17 @@ mod test {
         let (bytecode, constants) = IRCompiler::compiler(file);
         assert_eq!(constants, vec![Value::Boolean(false)]);
         assert_eq!(bytecode, vec![Bytecode2::LoadConstant(0)]);
+        let file = parse_file("\"hi\"").unwrap();
+        let (bytecode, constants) = IRCompiler::compiler(file);
+        assert_eq!(bytecode, vec![
+            Bytecode2::AllocHeap,
+            Bytecode2::LoadNumber('h' as usize),
+            Bytecode2::HeapTablePush,
+            Bytecode2::Pop,
+            Bytecode2::LoadNumber('i' as usize),
+            Bytecode2::HeapTablePush,
+            Bytecode2::Pop,
+        ])
     }
     #[test]
     fn literal_table() {
@@ -261,7 +302,64 @@ mod test {
             Bytecode2::LoadConstant(1),
             Bytecode2::HeapTablePush,
             Bytecode2::Pop,
-        ])
+        ]);
+        let chunk = Chunk2::new(bytecode, constants);
+        let mut vm = Vm2::new();
+        vm.load(chunk);
+        vm.run();
+        //assert_eq!(vm.heap.pop().unwrap(), HeapValue::Table(Table{ inner: vec![] }))
+    }
+    fn literal_table_array() {
+        let file = parse_file("[1, false, 3.0]").unwrap();
+        let (bytecode, constants) = IRCompiler::compiler(file);
+        assert_eq!(constants, vec![Value::Boolean(false), Value::Float(3.0)]);
+        assert_eq!(bytecode, vec![
+            Bytecode2::AllocHeap,
+            Bytecode2::LoadNumber(1),
+            Bytecode2::HeapTablePush,
+            Bytecode2::Pop,
+            Bytecode2::LoadConstant(0),
+            Bytecode2::HeapTablePush,
+            Bytecode2::Pop,
+            Bytecode2::LoadConstant(1),
+            Bytecode2::HeapTablePush,
+            Bytecode2::Pop,
+        ]);
+        let chunk = Chunk2::new(bytecode, constants);
+        let mut vm = Vm2::new();
+        vm.load(chunk);
+        vm.run();
+        let test_table = Table {
+            inner: vec![
+                TableKey::NoStr(Value::Int(1)),
+                TableKey::NoStr(Value::Boolean(false)),
+                TableKey::NoStr(Value::Float(3.0))
+            ]
+        };
+        assert_eq!(vm.heap.pop().unwrap(), HeapValue::Table(test_table))
+    }
+    #[test]
+    fn let_statement() {
+        let file = parse_file("let x = 1;").unwrap();
+        let (bytecode, constants) = IRCompiler::compiler(file);
+
+    }
+    #[test]
+    fn vm_literal() {
+        let file = parse_file("1").unwrap();
+        let (bytecode, constants) = IRCompiler::compiler(file);
+        let chunk = Chunk2::new(bytecode, constants);
+        let mut vm = Vm2::new();
+        vm.load(chunk);
+        vm.run();
+        assert_eq!(vm.pop(), Value::Int(1));
+        let file = parse_file("true").unwrap();
+        let (bytecode, constants) = IRCompiler::compiler(file);
+        let chunk = Chunk2::new(bytecode, constants);
+        let mut vm = Vm2::new();
+        vm.load(chunk);
+        vm.run();
+        assert_eq!(vm.pop(), Value::Boolean(true));
     }
 }
 pub fn parse_file(file: &str) -> Option<ir::File> {

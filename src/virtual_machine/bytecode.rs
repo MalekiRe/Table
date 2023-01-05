@@ -53,6 +53,8 @@ pub enum Bytecode2 {
     HeapTableGetIndex,
     /// peeks `value` and `heap_index` and `heap[heap_index].push(value)`
     HeapTablePush,
+    /// peeks `value` `key` `heap_index` and then `heap[heap_index].insert(key, value)`
+    HeapTablePushWithKey,
     /// pops `value` and `register[usize] = value`
     RegisterSet(usize),
     /// pushes `register[usize]`
