@@ -90,6 +90,8 @@ pub enum Bytecode {
     PushLocal,
     /// `local_vars.pop()` and pushes onto stack
     PopLocal,
+    /// pops `value` and `local_vars[u32] = value`
+    SetLocal(u32),
     /// `local = local_vars[u32]` and then `heap.push(local)` and then pushes `heap.len()-1` onto stack
     AllocLocal(u32),
     /// pops `rhs` `lhs` and pushes `lhs + rhs` onto stack
@@ -333,6 +335,10 @@ impl Vm {
                     let heap_index: usize = self.peek(0).try_to_str_index().unwrap();
                     let str: &mut String = self.heap.get_mut(heap_index).unwrap().try_into().unwrap();
                     str.push(char);
+                }
+                Bytecode::SetLocal(distance) => {
+                    let value = self.pop();
+                    self.local[distance as usize] = value;
                 }
             }
         }

@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::default::Default;
 use crate::compiler::parser::{literal_value, table_operation};
 use crate::{Exp, LetStatement, StatementBlock};
-use crate::ir::{BinaryOp, BinaryOperation, File, IdentifierT, LiteralValue, MathOp, OptionalStatementBlock, Statement, TableKeyTemp, TableLiteral, TableOperation};
+use crate::ir::{BinaryOp, BinaryOperation, File, IdentifierT, LiteralValue, MathOp, OptionalStatementBlock, ReassignmentStatement, Statement, TableKeyTemp, TableLiteral, TableOperation};
 use crate::ir::ir_bytecode_compiler::{FnHeader, Variable};
 use crate::register_machine::stack_value::StackValue;
 use crate::register_machine::vm::{Bytecode, Chunk};
@@ -102,7 +102,22 @@ impl IRCompiler {
             Statement::ExpStatement(_) => todo!(),
             Statement::StatementBlock(optional_statement_block) => self.optional_statement_block(optional_statement_block),
             Statement::UnaryPostfixOperation(_) => todo!(),
-            Statement::ReassignmentStatement(reassignment_statement) => todo!(),
+            Statement::ReassignmentStatement(reassignment_statement) => self.reassignment_statement(reassignment_statement),
+        }
+    }
+    pub fn reassignment_statement(&mut self, reassignment_statement: ReassignmentStatement) {
+        match reassignment_statement {
+            ReassignmentStatement { identifier, lhs } => {
+                let location = self.scope_holder.find_variable(identifier.clone()).expect(format!("variable '{}' doesn't exist or isn't in scope", identifier).as_str());
+                self.exp(*lhs);
+                match location {
+                    Location::Local(local) => {
+                        self.bytecode.push(Bytecode::SetLocal(local as u32))
+                    }
+                    Location::Heap(_) => todo!(),
+                    Location::Constant(_) => todo!(),
+                }
+            }
         }
     }
     pub fn optional_statement_block(&mut self, statement_block: OptionalStatementBlock) {
@@ -389,22 +404,22 @@ mod test {
         vm.load(IRCompiler::compile(file));
         vm.run();
     }
-    // #[test]
-    // fn scoping() {
-    //     let mut vm = Vm::new();
-    //     let str = r#"
-    //         let foo = 1;
-    //         let bar = 0;
-    //         {
-    //             let foo = 2;
-    //             {
-    //                 bar = foo;
-    //             }
-    //         }
-    //         bar
-    //     "#;
-    //     vm.load(IRCompiler::compile(parse_file(str).unwrap()));
-    //     //vm.run();
-    //     //assert_eq!(vm.pop(), StackValue::Number(2.0));
-    // }
+    #[test]
+    fn scoping() {
+        let mut vm = Vm::new();
+        let str = r#"
+            let foo = 1;
+            let bar = 0;
+            {
+                let foo = 2;
+                {
+                    bar = foo;
+                }
+            }
+            bar
+        "#;
+        vm.load(IRCompiler::compile(parse_file(str).unwrap()));
+        //vm.run();
+        //assert_eq!(vm.pop(), StackValue::Number(2.0));
+    }
 }
