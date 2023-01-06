@@ -419,7 +419,7 @@ mod test {
             bar
         "#;
         vm.load(IRCompiler::compile(parse_file(str).unwrap()));
-        //vm.run();
-        //assert_eq!(vm.pop(), StackValue::Number(2.0));
+        vm.run();
+        assert_eq!(vm.pop(), StackValue::Number(2.0));
     }
 }
