@@ -132,6 +132,16 @@ let x = x + y;
             Some(_) => {}
         }
     }
+    #[test]
+    fn reassignment() {
+        match parse_file(r#"
+            let x = 1;
+            x = 2;
+        "#) {
+            None => assert!(false),
+            Some(_) => {}
+        }
+    }
 }
 
 pub fn parse_exp_thing(file: &str) -> Option<ir::Exp> {

@@ -166,6 +166,7 @@ pub enum Statement {
     FnDec(FnDec),
     FnImport(FnImport),
     LetStatement(LetStatement),
+    ReassignmentStatement(ReassignmentStatement),
     ExpStatement(BExp),
     StatementBlock(OptionalStatementBlock),
     UnaryPostfixOperation(UnaryPostfixOperation),
@@ -174,6 +175,11 @@ pub enum Statement {
 pub struct FnImport {
     pub(crate) identifier: IdentifierT,
     pub(crate) args: Vec<IdentifierT>,
+}
+#[derive(Debug, PartialEq)]
+pub struct ReassignmentStatement {
+    pub(crate) identifier: IdentifierT,
+    pub(crate) lhs: BExp,
 }
 #[derive(Debug, PartialEq)]
 pub struct FnDec {

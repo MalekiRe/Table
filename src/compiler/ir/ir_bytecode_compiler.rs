@@ -123,6 +123,7 @@ impl IRCompiler {
             Statement::ExpStatement(_) => todo!(),
             Statement::StatementBlock(_) => todo!(),
             Statement::UnaryPostfixOperation(_) => todo!(),
+            Statement::ReassignmentStatement(_) => todo!(),
         }
     }
     fn let_statement(&mut self, let_statement: LetStatement) {

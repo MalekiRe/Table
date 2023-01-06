@@ -102,6 +102,7 @@ impl IRCompiler {
             Statement::ExpStatement(_) => todo!(),
             Statement::StatementBlock(_) => todo!(),
             Statement::UnaryPostfixOperation(_) => todo!(),
+            Statement::ReassignmentStatement(reassignment_statement) => todo!(),
         }
     }
     pub fn let_statement(&mut self, let_statement: LetStatement) {
@@ -332,5 +333,35 @@ mod test {
         vm.load(IRCompiler::compile(parse_file(str).unwrap()));
         vm.run();
         assert_eq!(vm.pop(), StackValue::Number(2.0));
+    }
+    #[test]
+    fn reassignment() {
+        let mut vm = Vm::new();
+        let str = r#"
+            let foo = 1;
+            foo = 2;
+            foo
+        "#;
+        vm.load(IRCompiler::compile(parse_file(str).unwrap()));
+        vm.run();
+        assert_eq!(vm.pop(), StackValue::Number(2.0));
+    }
+    #[test]
+    fn scoping() {
+        let mut vm = Vm::new();
+        let str = r#"
+            let foo = 1;
+            let bar = 0;
+            {
+                let foo = 2;
+                {
+                    bar = foo;
+                }
+            }
+            bar
+        "#;
+        vm.load(IRCompiler::compile(parse_file(str).unwrap()));
+        //vm.run();
+        //assert_eq!(vm.pop(), StackValue::Number(2.0));
     }
 }

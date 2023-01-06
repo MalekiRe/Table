@@ -8,7 +8,7 @@ use crate::compiler::ir::TableOperation::{TableFieldAccess, TableStaticFuncCalli
 use crate::compiler::parser;
 use crate::compiler::parser::error::{ErrorT, ErrorKind, Pattern};
 use crate::compiler::parser::span::TSpan;
-use crate::ir::{BinaryOp, BinaryOperation, Block, BStatement, EqualityOp, Exp, ExpBlock, File, FnBody, FnCall, FnDec, FnImport, LiteralValue, MathOp, OptionalBlock, OptionalStatementBlock, Statement, TableKeyTemp, UnaryPrefixOp, UnaryPrefixOperation};
+use crate::ir::{BinaryOp, BinaryOperation, Block, BStatement, EqualityOp, Exp, ExpBlock, File, FnBody, FnCall, FnDec, FnImport, LiteralValue, MathOp, OptionalBlock, OptionalStatementBlock, ReassignmentStatement, Statement, TableKeyTemp, UnaryPrefixOp, UnaryPrefixOperation};
 
 pub mod lexer;
 pub mod error;
@@ -165,34 +165,43 @@ pub fn table_operation(exp: impl TParser<Exp>) -> impl TParser<TableOperation> {
          .or(table_field_access)
          .or(table_static_fn_calling)
 }
+macro_rules! op_macro{
+    ($op:expr, $term:expr) => {
+        Token::Operator(string) if string.as_str() == $op => $term
+    }
+}
 pub fn binary_operation(exp: impl TParser<Exp>) -> impl TParser<BinaryOperation> {
     //TODO Actual order of operations
-    let binary_op = select!{
-        Token::Operator(operator) => {
-            match operator.as_str() {
-                "+" => BinaryOp::Math(MathOp::Add),
-                "-" => BinaryOp::Math(MathOp::Subtract),
-                "/" => BinaryOp::Math(MathOp::Divide),
-                "*" => BinaryOp::Math(MathOp::Multiply),
-                "%" => BinaryOp::Math(MathOp::Modulo),
-                "+=" => BinaryOp::Math(MathOp::AddEqual),
-                "-=" => BinaryOp::Math(MathOp::MinusEqual),
-                "/=" => BinaryOp::Math(MathOp::DivideEqual),
-                "*=" => BinaryOp::Math(MathOp::MultiplyEqual),
-                "%=" => BinaryOp::Math(MathOp::ModuloEqual),
-
-                "==" => BinaryOp::Equality(EqualityOp::EqualsEquals),
-                "!=" => BinaryOp::Equality(EqualityOp::EqualsNot),
-                ">=" => BinaryOp::Equality(EqualityOp::EqualsGreater),
-                "<=" => BinaryOp::Equality(EqualityOp::EqualsLess),
-                ">" => BinaryOp::Equality(EqualityOp::Greater),
-                "<" => BinaryOp::Equality(EqualityOp::Less),
-                "&" => BinaryOp::Equality(EqualityOp::And),
-                "|" => BinaryOp::Equality(EqualityOp::Or),
-                &_ => panic!("invalid binary operator"),
-            }
-        }
-    };
+    // let binary_op = select!{
+    //     Token::Operator(operator) => {
+    //         match operator.as_str() {
+    //             "+" => BinaryOp::Math(MathOp::Add),
+    //             "-" => BinaryOp::Math(MathOp::Subtract),
+    //             "/" => BinaryOp::Math(MathOp::Divide),
+    //             "*" => BinaryOp::Math(MathOp::Multiply),
+    //             "%" => BinaryOp::Math(MathOp::Modulo),
+    //             "+=" => BinaryOp::Math(MathOp::AddEqual),
+    //             "-=" => BinaryOp::Math(MathOp::MinusEqual),
+    //             "/=" => BinaryOp::Math(MathOp::DivideEqual),
+    //             "*=" => BinaryOp::Math(MathOp::MultiplyEqual),
+    //             "%=" => BinaryOp::Math(MathOp::ModuloEqual),
+    //
+    //             "==" => BinaryOp::Equality(EqualityOp::EqualsEquals),
+    //             "!=" => BinaryOp::Equality(EqualityOp::EqualsNot),
+    //             ">=" => BinaryOp::Equality(EqualityOp::EqualsGreater),
+    //             "<=" => BinaryOp::Equality(EqualityOp::EqualsLess),
+    //             ">" => BinaryOp::Equality(EqualityOp::Greater),
+    //             "<" => BinaryOp::Equality(EqualityOp::Less),
+    //             "&" => BinaryOp::Equality(EqualityOp::And),
+    //             "|" => BinaryOp::Equality(EqualityOp::Or),
+    //             &_ => panic!("impossible"),
+    //         }
+    //     }
+    // };
+    let binary_op = select! {
+        Token::Operator(string) if string.as_str() == "+" => BinaryOp::Math(MathOp::Add),
+        Token::Operator(string) if string.as_str() == "-" => BinaryOp::Math(MathOp::Subtract),
+    }.map_err(|e: ErrorT| e.expected(Pattern::Token(Token::Operator("+-=/*&|".to_string()))));
     exp.clone().then(binary_op).then(exp)
         .map(|((lhs, op), rhs)| {
             BinaryOperation {
@@ -216,6 +225,7 @@ pub fn statement(exp: impl TParser<ir::Exp> + 'static) -> impl TParser<ir::State
             .or(fn_dec(exp.clone(), statement.clone()).map(Statement::FnDec))
             .or(fn_import().map(Statement::FnImport))
             .or(let_statement(exp.clone()).map(Statement::LetStatement))
+            .or(reassignment_statement(exp.clone()).map(Statement::ReassignmentStatement))
     })
 }
 pub fn let_statement(exp: impl TParser<Exp>) -> impl TParser<LetStatement> {
@@ -230,6 +240,17 @@ pub fn let_statement(exp: impl TParser<Exp>) -> impl TParser<LetStatement> {
                 identifier,
                 lhs: Box::new(exp),
             }
+        })
+}
+pub fn reassignment_statement(exp: impl TParser<Exp>) -> impl TParser<ReassignmentStatement> {
+    identifier().then_ignore(just(Token::Operator("=".to_string())))
+        .then(exp)
+        .then_ignore(just(Token::Control(';')))
+        .map(|(identifier, exp)| {
+          ReassignmentStatement {
+              identifier,
+              lhs: Box::new(exp)
+          }
         })
 }
 pub fn fn_import() -> impl TParser<FnImport> {
