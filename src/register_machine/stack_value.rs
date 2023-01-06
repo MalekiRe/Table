@@ -17,6 +17,12 @@ impl StackValue {
             _ => Err(SimpleError::new("not a table"))
         }
     }
+    pub fn try_to_str_index(self) -> Result<usize, SimpleError> {
+        match self {
+            StackValue::String(index) => Ok(index as usize),
+            _ => Err(SimpleError::new("not a string")),
+        }
+    }
 }
 
 impl<'a> TryFrom<&'a HeapValue> for &'a String {
@@ -47,6 +53,17 @@ impl<'a> TryFrom<&'a mut HeapValue> for &'a mut Table {
     fn try_from(value: &'a mut HeapValue) -> Result<Self, Self::Error> {
         match value {
             HeapValue::Table(table) => Ok(table),
+            _ => Err(SimpleError::new("error")),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a mut HeapValue> for &'a mut String {
+    type Error = SimpleError;
+
+    fn try_from(value: &'a mut HeapValue) -> Result<Self, Self::Error> {
+        match value {
+            HeapValue::String(string) => Ok(string),
             _ => Err(SimpleError::new("error")),
         }
     }
@@ -149,6 +166,16 @@ impl TryFrom<HeapValue> for StackValue {
             HeapValue::Nil => Ok(StackValue::Nil),
             HeapValue::String(_) |
             HeapValue::Table(_) => Err(SimpleError::new("can't do this"))
+        }
+    }
+}
+
+impl TryFrom<StackValue> for char {
+    type Error = SimpleError;
+    fn try_from(value: StackValue) -> Result<Self, Self::Error> {
+        match value {
+            StackValue::Number(number) => Ok(char::from_u32(number as u32).unwrap()),
+            _ => Err(SimpleError::new("not a char"))
         }
     }
 }

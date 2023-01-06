@@ -6,7 +6,7 @@ use crate::ir::{BinaryOp, BinaryOperation, File, IdentifierT, LiteralValue, Math
 use crate::ir::ir_bytecode_compiler::{FnHeader, Variable};
 use crate::register_machine::stack_value::StackValue;
 use crate::register_machine::vm::{Bytecode, Chunk};
-use crate::register_machine::vm::Bytecode::{AddPop, AllocTable, GetTableNum, LoadConstant, PeekLocal, PushTableNum};
+use crate::register_machine::vm::Bytecode::{AddPop, AllocString, AllocTable, GetTableNum, GetTableStr, LoadConstant, PeekLocal, PushChar, PushTableNum, PushTableStr};
 
 pub struct Scope {
     variables: HashMap<IdentifierT, Location>,
@@ -137,7 +137,14 @@ impl IRCompiler {
                 self.bytecode.push(GetTableNum)
             }
             TableOperation::TableMethodCalling { .. } => todo!(),
-            TableOperation::TableFieldAccess { .. } => todo!(),
+            TableOperation::TableFieldAccess { table, field } => {
+                // table is now on top of the stack
+                self.exp(*table);
+                // then the stack is `string` `table`
+                self.string_literal(field);
+                self.bytecode.push(GetTableStr);
+
+            },
             TableOperation::TableStaticFuncCalling { .. } => todo!(),
         }
     }
@@ -179,32 +186,38 @@ impl IRCompiler {
         let stack_value = match literal_value {
             LiteralValue::Decimal(decimal) => Some(StackValue::Number(decimal as f32)),
             LiteralValue::Integer(integer) => Some(StackValue::Number(integer as f32)),
-            LiteralValue::String(string) => {todo!()},
+            LiteralValue::String(string) => {self.string_literal(string); None},
             LiteralValue::Table(table_literal) => { self.table_literal(table_literal); None}
             LiteralValue::Boolean(boolean) => Some(StackValue::Boolean(boolean)),
         };
         match stack_value {
             None => {}
             Some(stack_value) => {
-                if !self.consts.contains(&stack_value) {
-                    self.consts.push(stack_value);
-                }
-                self.bytecode.push(LoadConstant((self.consts.iter().position(|&v| v == stack_value)).unwrap() as u32))
+                self.add_constant(stack_value);
             }
         }
+    }
+    fn add_constant(&mut self, stack_value: StackValue) {
+        if !self.consts.contains(&stack_value) {
+            self.consts.push(stack_value);
+        }
+        self.bytecode.push(LoadConstant((self.consts.iter().position(|&v| v == stack_value)).unwrap() as u32))
     }
     fn table_literal(&mut self, table_literal: TableLiteral) {
         self.bytecode.push(AllocTable);
         for (i, item) in table_literal.into_iter().enumerate() {
             match item {
                 TableKeyTemp { ident, exp } => {
-                    self.exp(*exp);
                     match ident {
                         None => {
+                            self.exp(*exp);
                             self.bytecode.push(PushTableNum);
                         }
                         Some(ident) => {
-                            todo!()
+                            // puts the string pointer is on the top of the stack.
+                            self.string_literal(ident);
+                            self.exp(*exp);
+                            self.bytecode.push(PushTableStr);
                         }
                     }
                     self.bytecode.push(Bytecode::Pop);
@@ -212,12 +225,13 @@ impl IRCompiler {
             }
         }
     }
-    // fn string_literal(&mut self, string_literal: String) {
-    //     if !self.const_strs.contains(&string_literal) {
-    //         self.const_strs.push(string_literal);
-    //     }
-    //     self.bytecode.push(LoadConstant((self.const_strs.iter().position(|&s| s == string_literal)).unwrap() as u32))
-    // }
+    fn string_literal(&mut self, string: String) {
+        self.bytecode.push(AllocString);
+        for char in string.chars() {
+            self.add_constant(StackValue::Number(char as u32 as f32));
+            self.bytecode.push(PushChar);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -225,7 +239,7 @@ mod test {
     use crate::ir::ir_bytecode_compiler::parse_file;
     use crate::register_machine::ir_bytecode_compiler::IRCompiler;
     use crate::register_machine::stack_value::StackValue;
-    use crate::register_machine::vm::Vm;
+    use crate::register_machine::vm::{HeapValue, Vm};
 
     #[test]
     fn first() {
@@ -275,5 +289,48 @@ mod test {
         vm.load(IRCompiler::compile(parse_file(str).unwrap()));
         vm.run();
         assert_eq!(vm.chunk().stack, vec![StackValue::Number(3.0)])
+    }
+    #[test]
+    fn simple_str_test() {
+        let mut vm = Vm::new();
+        vm.load(IRCompiler::compile(parse_file("\"hi\"").unwrap()));
+        vm.run();
+        let str: &String = vm.get_heap(0).try_into().unwrap();
+        assert_eq!(str, &String::from("hi"))
+    }
+    #[test]
+    fn table_str_test() {
+        let mut vm = Vm::new();
+        vm.load(IRCompiler::compile(parse_file(r#"
+            let my_str = "hello world!";
+            let my_table = [my_str, 1, "yo yo yo"];
+            my_table@0
+        "#).unwrap()));
+        vm.run();
+        let str_pos: usize = vm.pop().try_to_str_index().unwrap();
+        let str: &String = vm.get_heap(str_pos as u32).try_into().unwrap();
+        assert_eq!(str, &String::from("hello world!"));
+    }
+    #[test]
+    fn table_str_1() {
+        let mut vm = Vm::new();
+        let str = r#"
+            let my_table = [some_thing: 1, false, anotherthing: "yo"];
+            my_table@0
+        "#;
+        vm.load(IRCompiler::compile(parse_file(str).unwrap()));
+        vm.run();
+        assert_eq!(vm.pop(), StackValue::Number(1.0));
+    }
+    #[test]
+    fn table_field_access() {
+        let mut vm = Vm::new();
+        let str = r#"
+            let my_table = [some_thing: 1, false, anotherthing: "yo"];
+            1 + my_table.some_thing
+        "#;
+        vm.load(IRCompiler::compile(parse_file(str).unwrap()));
+        vm.run();
+        assert_eq!(vm.pop(), StackValue::Number(2.0));
     }
 }

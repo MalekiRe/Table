@@ -80,6 +80,8 @@ pub enum Bytecode {
     LoadHeap(u32),
     /// pushes `Heap.push(Table::new())` and pushes `Heap.len()-1` onto stack
     AllocTable,
+    /// pushes `Heap.push(String::new())` and pushes `Heap.len()-1` onto stack
+    AllocString,
     /// peeks `value` an pushes it onto heap and pushes `heap_index` onto stack
     AllocValue,
     /// pushes `local_vars[value]` onto stack
@@ -98,7 +100,7 @@ pub enum Bytecode {
     InvertPop,
     /// pops `table_index` `heap_index` and pushes `Heap[heap_index][table_index]`
     GetTableNum,
-    /// peeks `str_index` `heap_index` and pushes `Heap[heap_index].get(Heap[str_index])`
+    /// pops `str_index` `heap_index` and pushes `Heap[heap_index].get(Heap[str_index])`
     GetTableStr,
     /// peeks `value` `table_index` `heap_index` and `Heap[heap_index][table_index] = value`
     SetTableNum,
@@ -108,6 +110,8 @@ pub enum Bytecode {
     PushTableNum,
     /// pops `value` peeks `str_index` `heap_index` `table = Heap[heap_index]` `table.insert(str_index, value)` and pushes `table.len()-1` onto stack
     PushTableStr,
+    /// pops `value` peeks `heap_index` and `string = Heap[heap_index]` `string.push(value)`
+    PushChar,
 }
 #[derive(Debug)]
 pub struct Chunk {
@@ -217,6 +221,10 @@ impl Vm {
                     self.heap.push(HeapValue::Table(Table::default()));
                     self.push(StackValue::Table((self.heap.len() - 1) as u32));
                 },
+                Bytecode::AllocString => {
+                    self.heap.push(HeapValue::String(String::new()));
+                    self.push(StackValue::String((self.heap.len() -1) as u32));
+                }
                 Bytecode::AllocValue => {
                     let value = self.peek(0);
                     self.heap.push(value.try_into().unwrap());
@@ -280,8 +288,8 @@ impl Vm {
                     self.push(value);
                 },
                 Bytecode::GetTableStr => {
-                    let str_index: usize = self.peek(0).try_into().unwrap();
-                    let heap_index: usize = self.peek(1).try_into().unwrap();
+                    let str_index: usize = self.pop().try_to_str_index().unwrap();
+                    let heap_index: usize = self.pop().try_to_table_index().unwrap();
                     let table: &Table = self.heap.get(heap_index).unwrap().try_into().unwrap();
                     let str_val: &String = self.heap.get(str_index).unwrap().try_into().unwrap();
                     let value = table.get_with_ident(str_val.as_str());
@@ -313,13 +321,19 @@ impl Vm {
                 },
                 Bytecode::PushTableStr => {
                     let value = self.pop();
-                    let str_index: usize = self.peek(0).try_into().unwrap();
-                    let heap_index: usize = self.peek(1).try_into().unwrap();
+                    let str_index: usize = self.peek(0).try_to_str_index().unwrap();
+                    let heap_index: usize = self.peek(1).try_to_table_index().unwrap();
                     let str: &String = self.heap.get(str_index).unwrap().try_into().unwrap();
                     let str = str.clone();
                     let table: &mut Table = self.heap.get_mut(heap_index).unwrap().try_into().unwrap();
                     table.push_with_ident(str, value);
                 },
+                Bytecode::PushChar => {
+                    let char: char = self.pop().try_into().unwrap();
+                    let heap_index: usize = self.peek(0).try_to_str_index().unwrap();
+                    let str: &mut String = self.heap.get_mut(heap_index).unwrap().try_into().unwrap();
+                    str.push(char);
+                }
             }
         }
     }
