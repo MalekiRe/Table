@@ -3,17 +3,17 @@ use std::default::Default;
 use crate::compiler::parser::literal_value;
 use crate::{Exp, LetStatement};
 use crate::ir::{BinaryOp, BinaryOperation, File, IdentifierT, LiteralValue, MathOp, Statement};
-use crate::ir::ir_bytecode_compiler::FnHeader;
+use crate::ir::ir_bytecode_compiler::{FnHeader, Variable};
 use crate::register_machine::stack_value::StackValue;
 use crate::register_machine::vm::{Bytecode, Chunk};
-use crate::register_machine::vm::Bytecode::{AddPop, LoadConstant};
+use crate::register_machine::vm::Bytecode::{AddPop, LoadConstant, PeekLocal};
 
 pub struct Scope {
     variables: HashMap<IdentifierT, Location>,
 }
 #[derive(Debug, Clone, Copy)]
 pub enum Location {
-    Stack(usize),
+    Local(usize),
     Heap(usize),
     Constant(usize),
 }
@@ -23,9 +23,13 @@ impl ScopeHolder {
         self.0.last_mut().unwrap().variables.insert(variable_name, location);
     }
     pub fn find_variable(&mut self, variable_name: IdentifierT) -> Option<Location> {
-        let mut index = self.0.len()-1;
-        while index > 0 {
-            match self.0[index].variables.get(&variable_name) {
+        let mut index = self.0.len();
+        loop {
+            if index == 0 {
+                break;
+            }
+            index -= 1;
+            match self.0[index].variables.get(variable_name.as_str()) {
                 None => (),
                 Some(thing) => {
                     return Some(*thing)
@@ -59,17 +63,19 @@ pub struct IRCompiler {
     bytecode: Vec<Bytecode>,
     consts: Vec<StackValue>,
     scope_holder: ScopeHolder,
+    stack_size: usize,
 }
 impl IRCompiler {
     pub fn compile(file: File) -> Chunk {
         let mut this = Self {
             bytecode: vec![],
             consts: Default::default(),
-            scope_holder: Default::default()
+            scope_holder: Default::default(),
+            stack_size: 0,
         };
         this.file(file);
         match this {
-            IRCompiler { bytecode, consts, scope_holder } => {
+            IRCompiler { bytecode, consts, .. } => {
                 Chunk::from(bytecode, consts)
             }
         }
@@ -101,8 +107,10 @@ impl IRCompiler {
             LetStatement { identifier, lhs } => {
                 self.exp(*lhs);
                 self.bytecode.push(Bytecode::PushLocal);
-                self.bytecode.pop();
-               //TODO dot his self.scope_holder.add_variable(identifier, Location::Stack(0));
+                self.bytecode.push(Bytecode::Pop);
+
+                self.scope_holder.add_variable(identifier, Location::Local(self.stack_size));
+                self.stack_size += 1;
             }
         }
     }
@@ -112,9 +120,18 @@ impl IRCompiler {
             Exp::LiteralValue(value) => self.literal_value(value),
             Exp::FnCall(_) => todo!(),
             Exp::TableOperation(_) => todo!(),
-            Exp::Variable(_) => todo!(),
+            Exp::Variable(variable) => self.variable(variable),
             Exp::UnaryPrefixOperation(_) => todo!(),
             Exp::BinaryOperation(binary_operation) => self.binary_operation(binary_operation),
+        }
+    }
+    pub fn variable(&mut self, variable: IdentifierT) {
+        match self.scope_holder.find_variable(variable).unwrap() {
+            Location::Local(local) => {
+                self.bytecode.push(PeekLocal(local as u32))
+            }
+            Location::Heap(heap) => todo!(),
+            Location::Constant(constant) => todo!(),
         }
     }
     pub fn binary_operation(&mut self, binary_operation: BinaryOperation) {
@@ -179,5 +196,12 @@ mod test {
         vm.load(IRCompiler::compile(parse_file("1+2").unwrap()));
         vm.run();
         assert_eq!(vm.chunk().stack, vec![StackValue::Number(3.0)])
+    }
+    #[test]
+    fn let_statement() {
+        let mut vm = Vm::new();
+        vm.load(IRCompiler::compile(parse_file("let x = 1; let y = 2; let z = x + 1; y + z").unwrap()));
+        vm.run();
+        assert_eq!(vm.chunk().stack, vec![StackValue::Number(4.0)])
     }
 }

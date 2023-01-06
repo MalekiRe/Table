@@ -64,7 +64,7 @@ pub enum HeapValue {
     Boolean(bool),
     Nil,
 }
-
+#[derive(Debug)]
 pub enum Bytecode {
     /// pops `value` off stack and does nothing with it.
     Pop,
@@ -111,6 +111,7 @@ pub enum Bytecode {
     /// peeks `value` `str_index` `heap_index` `table = Heap[heap_index]` `table.insert(str_index, value)` and pushes `table.len()-1` onto stack
     PushTableStr,
 }
+#[derive(Debug)]
 pub struct Chunk {
     ptr: u32,
     bytecode: Vec<Bytecode>,
@@ -167,9 +168,9 @@ impl Vm {
     pub fn push(&mut self, value: StackValue) {
         self.chunk_mut().stack.push(value);
     }
-    pub fn peek(&mut self, distance: u32) -> StackValue {
-        let index = self.chunk().stack.len() - distance as usize;
-        *self.chunk_mut().stack.get(index).unwrap()
+    pub fn peek(&self, distance: u32) -> StackValue {
+        let index = (self.chunk().stack.len() - distance as usize) - 1;
+        *self.chunk().stack.get(index).unwrap()
     }
     pub fn pop_local(&mut self) -> StackValue {
         self.local.pop().unwrap()
@@ -177,9 +178,8 @@ impl Vm {
     pub fn push_local(&mut self, value: StackValue) {
         self.local.push(value)
     }
-    pub fn peek_local(&mut self, distance: u32) -> StackValue {
-        let index = self.local.len() - distance as usize;
-        *self.local.get(index).unwrap()
+    pub fn peek_local(&mut self, index: u32) -> StackValue {
+        *self.local.get(index as usize).unwrap()
     }
     pub fn run(&mut self) {
         loop {
@@ -217,8 +217,8 @@ impl Vm {
                     self.heap.push(value.try_into().unwrap());
                     self.push((self.heap.len() - 1).try_into().unwrap());
                 },
-                Bytecode::PeekLocal(distance) => {
-                    let val = self.peek_local(distance);
+                Bytecode::PeekLocal(index) => {
+                    let val = self.peek_local(index);
                     self.push(val);
                 },
                 Bytecode::PushLocal => {
