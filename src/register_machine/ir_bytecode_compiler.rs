@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::default::Default;
-use crate::compiler::parser::literal_value;
+use crate::compiler::parser::{literal_value, table_operation};
 use crate::{Exp, LetStatement};
-use crate::ir::{BinaryOp, BinaryOperation, File, IdentifierT, LiteralValue, MathOp, Statement};
+use crate::ir::{BinaryOp, BinaryOperation, File, IdentifierT, LiteralValue, MathOp, Statement, TableKeyTemp, TableLiteral, TableOperation};
 use crate::ir::ir_bytecode_compiler::{FnHeader, Variable};
 use crate::register_machine::stack_value::StackValue;
 use crate::register_machine::vm::{Bytecode, Chunk};
-use crate::register_machine::vm::Bytecode::{AddPop, LoadConstant, PeekLocal};
+use crate::register_machine::vm::Bytecode::{AddPop, AllocTable, GetTableNum, LoadConstant, PeekLocal, PushTableNum};
 
 pub struct Scope {
     variables: HashMap<IdentifierT, Location>,
@@ -62,6 +62,7 @@ impl Default for Scope {
 pub struct IRCompiler {
     bytecode: Vec<Bytecode>,
     consts: Vec<StackValue>,
+    const_strs: Vec<String>,
     scope_holder: ScopeHolder,
     stack_size: usize,
 }
@@ -70,6 +71,7 @@ impl IRCompiler {
         let mut this = Self {
             bytecode: vec![],
             consts: Default::default(),
+            const_strs: vec![],
             scope_holder: Default::default(),
             stack_size: 0,
         };
@@ -119,10 +121,24 @@ impl IRCompiler {
             Exp::ExpBlock(_) => todo!(),
             Exp::LiteralValue(value) => self.literal_value(value),
             Exp::FnCall(_) => todo!(),
-            Exp::TableOperation(_) => todo!(),
+            Exp::TableOperation(table_operation) => self.table_operation(table_operation),
             Exp::Variable(variable) => self.variable(variable),
             Exp::UnaryPrefixOperation(_) => todo!(),
             Exp::BinaryOperation(binary_operation) => self.binary_operation(binary_operation),
+        }
+    }
+    pub fn table_operation(&mut self, table_operation: TableOperation) {
+        match table_operation {
+            TableOperation::TableIndexing { table, index } => {
+                self.exp(*table);
+                // now we have the heap index for the table pushed onto the top of the stack.
+                self.exp(*index);
+                // now we have the index at the top of the stack as well.
+                self.bytecode.push(GetTableNum)
+            }
+            TableOperation::TableMethodCalling { .. } => todo!(),
+            TableOperation::TableFieldAccess { .. } => todo!(),
+            TableOperation::TableStaticFuncCalling { .. } => todo!(),
         }
     }
     pub fn variable(&mut self, variable: IdentifierT) {
@@ -161,17 +177,47 @@ impl IRCompiler {
     }
     pub fn literal_value(&mut self, literal_value: LiteralValue) {
         let stack_value = match literal_value {
-            LiteralValue::Decimal(decimal) => StackValue::Number(decimal as f32),
-            LiteralValue::Integer(integer) => StackValue::Number(integer as f32),
-            LiteralValue::String(string) => todo!(),
-            LiteralValue::Table(table_literal) => todo!(),
-            LiteralValue::Boolean(boolean) => StackValue::Boolean(boolean),
+            LiteralValue::Decimal(decimal) => Some(StackValue::Number(decimal as f32)),
+            LiteralValue::Integer(integer) => Some(StackValue::Number(integer as f32)),
+            LiteralValue::String(string) => {todo!()},
+            LiteralValue::Table(table_literal) => { self.table_literal(table_literal); None}
+            LiteralValue::Boolean(boolean) => Some(StackValue::Boolean(boolean)),
         };
-        if !self.consts.contains(&stack_value) {
-            self.consts.push(stack_value);
+        match stack_value {
+            None => {}
+            Some(stack_value) => {
+                if !self.consts.contains(&stack_value) {
+                    self.consts.push(stack_value);
+                }
+                self.bytecode.push(LoadConstant((self.consts.iter().position(|&v| v == stack_value)).unwrap() as u32))
+            }
         }
-        self.bytecode.push(LoadConstant((self.consts.iter().position(|&v| v == stack_value)).unwrap() as u32))
     }
+    fn table_literal(&mut self, table_literal: TableLiteral) {
+        self.bytecode.push(AllocTable);
+        for (i, item) in table_literal.into_iter().enumerate() {
+            match item {
+                TableKeyTemp { ident, exp } => {
+                    self.exp(*exp);
+                    match ident {
+                        None => {
+                            self.bytecode.push(PushTableNum);
+                        }
+                        Some(ident) => {
+                            todo!()
+                        }
+                    }
+                    self.bytecode.push(Bytecode::Pop);
+                }
+            }
+        }
+    }
+    // fn string_literal(&mut self, string_literal: String) {
+    //     if !self.const_strs.contains(&string_literal) {
+    //         self.const_strs.push(string_literal);
+    //     }
+    //     self.bytecode.push(LoadConstant((self.const_strs.iter().position(|&s| s == string_literal)).unwrap() as u32))
+    // }
 }
 
 #[cfg(test)]
@@ -203,5 +249,31 @@ mod test {
         vm.load(IRCompiler::compile(parse_file("let x = 1; let y = 2; let z = x + 1; y + z").unwrap()));
         vm.run();
         assert_eq!(vm.chunk().stack, vec![StackValue::Number(4.0)])
+    }
+    #[test]
+    fn table_dec_no_str() {
+        let mut vm = Vm::new();
+        vm.load(IRCompiler::compile(parse_file("[1, false, 0.2]").unwrap()));
+        vm.run();
+    }
+    #[test]
+    fn table_indexing() {
+        let mut vm = Vm::new();
+        vm.load(IRCompiler::compile(parse_file("[1, false, 0.2]@1").unwrap()));
+        vm.run();
+        assert_eq!(vm.chunk().stack, vec![StackValue::Boolean(false)])
+    }
+    #[test]
+    fn complex_table_access() {
+        let mut vm = Vm::new();
+        let str = r#"
+        let my_table = [1, false, 0.2];
+        let some_index = 0;
+        let z = 2;
+        z + my_table@some_index
+        "#;
+        vm.load(IRCompiler::compile(parse_file(str).unwrap()));
+        vm.run();
+        assert_eq!(vm.chunk().stack, vec![StackValue::Number(3.0)])
     }
 }

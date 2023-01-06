@@ -43,12 +43,12 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, TSpan)>, Error =ErrorT> {
         .then_ignore(just('"'))
         .collect::<String>()
         .map(Token::String);
-    let operator = one_of("@+-*/!=&|%<>")
+    let operator = one_of("+-*/!=&|%<>")
         .repeated()
         .at_least(1)
         .collect::<String>()
         .map(Token::Operator);
-    let control_chars = one_of("()[]{};:,.").map(|c| Token::Control(c));
+    let control_chars = one_of("@()[]{};:,.").map(|c| Token::Control(c));
     let identifier = text::ident().map(|ident: String| match ident.as_str() {
         "fn" => Token::Fn,
         "let" => Token::Let,

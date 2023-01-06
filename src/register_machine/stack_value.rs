@@ -10,6 +10,15 @@ pub enum StackValue {
     Nil,
 }
 
+impl StackValue {
+    pub fn try_to_table_index(self) -> Result<usize, SimpleError> {
+        match self {
+            StackValue::Table(index) => Ok(index as usize),
+            _ => Err(SimpleError::new("not a table"))
+        }
+    }
+}
+
 impl<'a> TryFrom<&'a HeapValue> for &'a String {
     type Error = SimpleError;
 
@@ -81,7 +90,7 @@ impl TryFrom<StackValue> for f32 {
     fn try_from(value: StackValue) -> Result<Self, Self::Error> {
         match value {
             StackValue::Number(number) => Ok(number),
-            _ => Err(SimpleError::new("not a number"))
+            _ => Err(SimpleError::new(format!("not a number: {:?}", value)))
         }
     }
 }
@@ -91,7 +100,7 @@ impl TryFrom<StackValue> for usize {
     fn try_from(value: StackValue) -> Result<Self, Self::Error> {
         match value {
             StackValue::Number(number) => Ok(number as usize),
-            _ => Err(SimpleError::new("not a number"))
+            _ => Err(SimpleError::new(format!("not a number: {:?}", value)))
         }
     }
 }
@@ -101,7 +110,7 @@ impl TryFrom<StackValue> for u32 {
     fn try_from(value: StackValue) -> Result<Self, Self::Error> {
         match value {
             StackValue::Number(number) => Ok(number as u32),
-            _ => Err(SimpleError::new("not a number"))
+            _ => Err(SimpleError::new(format!("not a number: {:?}", value)))
         }
     }
 }
@@ -111,7 +120,7 @@ impl TryFrom<StackValue> for bool {
     fn try_from(value: StackValue) -> Result<Self, Self::Error> {
         match value {
             StackValue::Boolean(bool) => Ok(bool),
-            _ => Err(SimpleError::new("not a number"))
+            _ => Err(SimpleError::new(format!("not a bool: {:#?}", value)))
         }
     }
 }

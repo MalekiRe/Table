@@ -66,6 +66,10 @@ pub enum HeapValue {
 }
 #[derive(Debug)]
 pub enum Bytecode {
+    /// takes the value `distance = u32` and `stack.peek(distance)`
+    DupAt(u32),
+    /// dups the top of the stack.
+    Dup,
     /// pops `value` off stack and does nothing with it.
     Pop,
     /// pops `condition`
@@ -86,19 +90,13 @@ pub enum Bytecode {
     PopLocal,
     /// `local = local_vars[u32]` and then `heap.push(local)` and then pushes `heap.len()-1` onto stack
     AllocLocal(u32),
-    /// peeks `rhs` `lhs` and pushes `lhs + rhs` onto stack
-    Add,
     /// pops `rhs` `lhs` and pushes `lhs + rhs` onto stack
     AddPop,
-    /// peeks `rhs` `lhs` and pushes `lhs == rhs` onto stack
-    Eq,
     /// pops `rhs` `lhs` and pushes `lhs == rhs` onto stack
     EqPop,
-    /// peeks `value` and pushes `!value` onto stack
-    Invert,
     /// pops `value` and pushes `!value` onto stack
     InvertPop,
-    /// peeks `table_index` `heap_index` and pushes `Heap[heap_index][table_index]`
+    /// pops `table_index` `heap_index` and pushes `Heap[heap_index][table_index]`
     GetTableNum,
     /// peeks `str_index` `heap_index` and pushes `Heap[heap_index].get(Heap[str_index])`
     GetTableStr,
@@ -106,9 +104,9 @@ pub enum Bytecode {
     SetTableNum,
     /// peeks `value` `str_index` `heap_index` and `Heap[heap_index].get(Heap[str_index]) = value`
     SetTableStr,
-    /// peeks `value` `heap_index` and `table = Heap[heap_index]` `table.push(value)` and pushes `table.len()-1` onto stack
+    /// pops `value` peeks `heap_index` and `table = Heap[heap_index]` `table.push(value)` and pushes `table.len()-1` onto stack
     PushTableNum,
-    /// peeks `value` `str_index` `heap_index` `table = Heap[heap_index]` `table.insert(str_index, value)` and pushes `table.len()-1` onto stack
+    /// pops `value` peeks `str_index` `heap_index` `table = Heap[heap_index]` `table.insert(str_index, value)` and pushes `table.len()-1` onto stack
     PushTableStr,
 }
 #[derive(Debug)]
@@ -188,6 +186,12 @@ impl Vm {
             }
             self.chunk_mut().ptr += 1;
             match *self.chunk().bytecode.get((self.chunk().ptr - 1) as usize).unwrap() {
+                Bytecode::DupAt(distance) => {
+                    self.push(self.peek(distance))
+                }
+                Bytecode::Dup => {
+                    self.push(self.peek(0));
+                }
                 Bytecode::Pop => {
                     self.chunk_mut().stack.pop();
                 }
@@ -210,7 +214,8 @@ impl Vm {
                     self.push(value);
                 },
                 Bytecode::AllocTable => {
-                    self.heap.push(HeapValue::Table(Table::default()))
+                    self.heap.push(HeapValue::Table(Table::default()));
+                    self.push(StackValue::Table((self.heap.len() - 1) as u32));
                 },
                 Bytecode::AllocValue => {
                     let value = self.peek(0);
@@ -233,40 +238,10 @@ impl Vm {
                     let val = self.peek_local(index);
                     self.heap.push(val.try_into().unwrap());
                 },
-                Bytecode::Add => {
-                    let rhs: f32 = self.peek(0).try_into().unwrap();
-                    let lhs: f32 = self.peek(1).try_into().unwrap();
-                    self.push((lhs + rhs).try_into().unwrap())
-                },
                 Bytecode::AddPop => {
                     let rhs: f32 = self.pop().try_into().unwrap();
                     let lhs: f32 = self.pop().try_into().unwrap();
                     self.push((lhs + rhs).try_into().unwrap())
-                },
-                Bytecode::Eq => {
-                    let rhs = self.peek(0);
-                    let lhs = self.peek(1);
-
-                    let result = match rhs {
-                        StackValue::Number(rhs) => {
-                            match lhs {
-                                StackValue::Number(lhs) => {
-                                    rhs == lhs
-                                }
-                                _ => panic!(),
-                            }
-                        }
-                        StackValue::Boolean(rhs) => {
-                            match lhs {
-                                StackValue::Boolean(lhs) => {
-                                    rhs == lhs
-                                }
-                                _ => panic!(),
-                            }
-                        }
-                        _ => panic!(),
-                    };
-                    self.push(result.try_into().unwrap());
                 },
                 Bytecode::EqPop => {
                     let rhs = self.pop();
@@ -293,17 +268,13 @@ impl Vm {
                     };
                     self.push(result.try_into().unwrap());
                 },
-                Bytecode::Invert => {
-                    let value: bool = self.peek(0).try_into().unwrap();
-                    self.push((!value).try_into().unwrap());
-                },
                 Bytecode::InvertPop => {
                     let value: bool = self.pop().try_into().unwrap();
                     self.push((!value).try_into().unwrap());
                 },
                 Bytecode::GetTableNum => {
-                    let table_index: u32 = self.peek(0).try_into().unwrap();
-                    let heap_index: usize = self.peek(1).try_into().unwrap();
+                    let table_index: u32 = self.pop().try_into().unwrap();
+                    let heap_index: usize = self.pop().try_to_table_index().unwrap();
                     let table: &Table = self.heap.get(heap_index).unwrap().try_into().unwrap();
                     let value = table.get(table_index);
                     self.push(value);
@@ -333,15 +304,17 @@ impl Vm {
                     table.replace_with_ident(str_val.as_str(), value);
                 },
                 Bytecode::PushTableNum => {
-                    let value = self.peek(0);
-                    let heap_index: usize = self.peek(1).try_into().unwrap();
+                    let value = self.pop();
+                    let heap_index: usize = self.peek(0).try_to_table_index().unwrap();
                     let table: &mut Table = self.heap.get_mut(heap_index).unwrap().try_into().unwrap();
                     table.push(value);
+                    let index = table.values.len()-1;
+                    self.push(StackValue::Number(index as f32))
                 },
                 Bytecode::PushTableStr => {
-                    let value = self.peek(0);
-                    let str_index: usize = self.peek(1).try_into().unwrap();
-                    let heap_index: usize = self.peek(2).try_into().unwrap();
+                    let value = self.pop();
+                    let str_index: usize = self.peek(0).try_into().unwrap();
+                    let heap_index: usize = self.peek(1).try_into().unwrap();
                     let str: &String = self.heap.get(str_index).unwrap().try_into().unwrap();
                     let str = str.clone();
                     let table: &mut Table = self.heap.get_mut(heap_index).unwrap().try_into().unwrap();

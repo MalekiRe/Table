@@ -122,8 +122,8 @@ pub fn exp() -> impl TParser<ir::Exp> {
         let table_operation = table_operation(exp.clone()).map(Exp::TableOperation);
         let exp_block = exp_block(exp.clone(), statement.clone()).map(Exp::ExpBlock);
 
-        let pre_ops_exp = literal_value.clone()
-            .or(table_operation.clone())
+        let pre_ops_exp = table_operation.clone()
+            .or(literal_value.clone())
             .or(fn_call.clone())
             .or(variable.clone())
             .or(unary_prefix_operation.clone())
@@ -139,7 +139,7 @@ pub fn table_operation(exp: impl TParser<Exp>) -> impl TParser<TableOperation> {
     let literal_value = literal_value(exp.clone()).map(Exp::LiteralValue);
     let variable = identifier().map(Exp::Variable);
     let table = fn_call_exp.clone().or(literal_value).clone().or(variable.clone());
-    let table_indexing = table.clone().then(exp.clone().delimited_by(just(Token::Control('[')), just(Token::Control(']')))).map(|(table, index)| {
+    let table_indexing = table.clone().then_ignore(just(Token::Control('@'))).then(exp.clone()).map(|(table, index)| {
        TableOperation::TableIndexing { table: Box::new(table), index: Box::new(index) }
     });
     let table_method_calling = table.clone().then_ignore(just(Token::Control('.'))).then(fn_call(exp.clone())).map(|(table, method)|{
@@ -189,7 +189,7 @@ pub fn binary_operation(exp: impl TParser<Exp>) -> impl TParser<BinaryOperation>
                 "<" => BinaryOp::Equality(EqualityOp::Less),
                 "&" => BinaryOp::Equality(EqualityOp::And),
                 "|" => BinaryOp::Equality(EqualityOp::Or),
-                &_ => panic!("how?"),
+                &_ => panic!("invalid binary operator"),
             }
         }
     };

@@ -81,6 +81,20 @@ mod test{
             Some(_) => {}
         }
     }
+    #[test]
+    fn indexed_access() {
+        match parse_exp_thing(format!("{}@1", generate_table_test()).as_str()) {
+            None => assert!(false),
+            Some(_) => ()
+        }
+    }
+    #[test]
+    fn second_indexed_access() {
+        match parse_exp_thing("[1, false, 0.1]@1") {
+            None => assert!(false),
+            Some(_) => {}
+        }
+    }
     // #[test]
     // fn empty_file_test() {
     //     match parse_file("") {
