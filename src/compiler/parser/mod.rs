@@ -226,6 +226,7 @@ pub fn statement(exp: impl TParser<ir::Exp> + 'static) -> impl TParser<ir::State
             .or(fn_import().map(Statement::FnImport))
             .or(let_statement(exp.clone()).map(Statement::LetStatement))
             .or(reassignment_statement(exp.clone()).map(Statement::ReassignmentStatement))
+            .or(optional_statement_block(statement.clone()).map(Statement::StatementBlock))
     })
 }
 pub fn let_statement(exp: impl TParser<Exp>) -> impl TParser<LetStatement> {

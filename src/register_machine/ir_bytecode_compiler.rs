@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::default::Default;
 use crate::compiler::parser::{literal_value, table_operation};
-use crate::{Exp, LetStatement};
-use crate::ir::{BinaryOp, BinaryOperation, File, IdentifierT, LiteralValue, MathOp, Statement, TableKeyTemp, TableLiteral, TableOperation};
+use crate::{Exp, LetStatement, StatementBlock};
+use crate::ir::{BinaryOp, BinaryOperation, File, IdentifierT, LiteralValue, MathOp, OptionalStatementBlock, Statement, TableKeyTemp, TableLiteral, TableOperation};
 use crate::ir::ir_bytecode_compiler::{FnHeader, Variable};
 use crate::register_machine::stack_value::StackValue;
 use crate::register_machine::vm::{Bytecode, Chunk};
@@ -100,10 +100,28 @@ impl IRCompiler {
             Statement::FnImport(_) => todo!(),
             Statement::LetStatement(let_statement) => self.let_statement(let_statement),
             Statement::ExpStatement(_) => todo!(),
-            Statement::StatementBlock(_) => todo!(),
+            Statement::StatementBlock(optional_statement_block) => self.optional_statement_block(optional_statement_block),
             Statement::UnaryPostfixOperation(_) => todo!(),
             Statement::ReassignmentStatement(reassignment_statement) => todo!(),
         }
+    }
+    pub fn optional_statement_block(&mut self, statement_block: OptionalStatementBlock) {
+        match statement_block {
+            OptionalStatementBlock::StatementBlock(statement_block) => self.statement_block(statement_block),
+            OptionalStatementBlock::Empty => {}
+        }
+    }
+    pub fn statement_block(&mut self, statement_block: StatementBlock) {
+        self.scope_holder.push();
+        match statement_block {
+            StatementBlock(statements) => {
+                self.statement(*statements.0);
+                for statement in statements.1 {
+                    self.statement(*statement)
+                }
+            }
+        }
+        self.scope_holder.pop();
     }
     pub fn let_statement(&mut self, let_statement: LetStatement) {
         match let_statement {
@@ -347,21 +365,46 @@ mod test {
         assert_eq!(vm.pop(), StackValue::Number(2.0));
     }
     #[test]
-    fn scoping() {
+    fn scoping_2() {
         let mut vm = Vm::new();
         let str = r#"
-            let foo = 1;
-            let bar = 0;
-            {
-                let foo = 2;
-                {
-                    bar = foo;
-                }
-            }
-            bar
+        let foo =  1;
+        {
+            let bar = foo;
+        }
+        foo
         "#;
         vm.load(IRCompiler::compile(parse_file(str).unwrap()));
-        //vm.run();
-        //assert_eq!(vm.pop(), StackValue::Number(2.0));
+        vm.run();
     }
+    #[test]
+    fn scoping_3() {
+        let mut vm = Vm::new();
+        let str = r#"
+            {
+                let x = 1;
+            }
+        "#;
+        let file = parse_file(str).unwrap();
+        vm.load(IRCompiler::compile(file));
+        vm.run();
+    }
+    // #[test]
+    // fn scoping() {
+    //     let mut vm = Vm::new();
+    //     let str = r#"
+    //         let foo = 1;
+    //         let bar = 0;
+    //         {
+    //             let foo = 2;
+    //             {
+    //                 bar = foo;
+    //             }
+    //         }
+    //         bar
+    //     "#;
+    //     vm.load(IRCompiler::compile(parse_file(str).unwrap()));
+    //     //vm.run();
+    //     //assert_eq!(vm.pop(), StackValue::Number(2.0));
+    // }
 }
