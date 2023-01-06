@@ -115,7 +115,7 @@ pub struct Chunk {
     ptr: u32,
     bytecode: Vec<Bytecode>,
     constants: Vec<StackValue>,
-    stack: Vec<StackValue>,
+    pub stack: Vec<StackValue>,
 }
 impl Chunk {
     pub fn from(bytecode: Vec<Bytecode>, constants: Vec<StackValue>) -> Self {
