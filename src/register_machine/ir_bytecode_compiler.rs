@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::default::Default;
 use crate::compiler::parser::literal_value;
-use crate::Exp;
+use crate::{Exp, LetStatement};
 use crate::ir::{BinaryOp, BinaryOperation, File, IdentifierT, LiteralValue, MathOp, Statement};
 use crate::ir::ir_bytecode_compiler::FnHeader;
 use crate::register_machine::stack_value::StackValue;
@@ -87,7 +87,24 @@ impl IRCompiler {
         }
     }
     pub fn statement(&mut self, statement: Statement) {
-        todo!()
+        match statement {
+            Statement::FnDec(_) => todo!(),
+            Statement::FnImport(_) => todo!(),
+            Statement::LetStatement(let_statement) => self.let_statement(let_statement),
+            Statement::ExpStatement(_) => todo!(),
+            Statement::StatementBlock(_) => todo!(),
+            Statement::UnaryPostfixOperation(_) => todo!(),
+        }
+    }
+    pub fn let_statement(&mut self, let_statement: LetStatement) {
+        match let_statement {
+            LetStatement { identifier, lhs } => {
+                self.exp(*lhs);
+                self.bytecode.push(Bytecode::PushLocal);
+                self.bytecode.pop();
+               //TODO dot his self.scope_holder.add_variable(identifier, Location::Stack(0));
+            }
+        }
     }
     pub fn exp(&mut self, exp: Exp) {
         match exp {
