@@ -83,7 +83,14 @@ if x print('hi');
 
 */
 /*
-the grammar
+The Grammar
+
+block ::= exp | statement
+file ::= block | EMPTY
+
+macro_call ::=
+           IDENT '!' '(' fn_call_args  ') |
+           exp '.' '!' '(' fn_call_args ')'
 
 variable   ::= IDENT | table_indexing | table_field_access
 
@@ -107,7 +114,6 @@ exp ::=
 
 control_flow_exp ::=
                  match_exp  |
-                 switch_exp |
                  loop_exp   |
                  for_exp    |
 
@@ -115,13 +121,11 @@ control_flow_exp ::=
 
     loop_exp  ::= 'loop' block
 
-    match_exp ::= 'match' exp '{' match_body* '}'
+    match_exp ::= 'match' exp? '{' match_body* '}'
 
-    match_body ::= exp '->' block
+    match_head ::= exp | exp ';' | exp ';' exp
 
-    switch_exp ::= 'switch' '{' switch_body* '}'
-
-    switch_body ::= exp '->' block
+    match_body ::= match_head ('->' | '=>' ) block
 
 table_exp ::=
           table_indexing     |
@@ -171,16 +175,4 @@ statement ::=
 
     if_statement ::=
                  'if' exp block ';'
-
-
-macro_call ::=
-           IDENT '!' '(' fn_call_args  ') |
-           exp '.' '!' '(' fn_call_args ')'
-
-block ::= exp | statement
-
-
-
-file ::= block | EMPTY
-
  */
