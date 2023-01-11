@@ -149,7 +149,6 @@ statement ::=
           exp ';'             |
           macro_call          |
 
-
     return_statement ::=
                      'return' ';'
                      'return' exp ';'
@@ -170,9 +169,8 @@ statement ::=
     let_statement ::=
                   'let' IDENT ';' |
                   'let' IDENT '=' exp ';' |
-                  'let' '(' IDENT ')' '=' exp ';' |
-                  'let' '(' IDENT ':' IDENT ')' '=' exp ';' |
+                  'let' '(' IDENT ')' '=' exp ';' | //trailing commas
+                  'let' '(' IDENT ':' IDENT ')' '=' exp ';' | //trailing commas
 
-    if_statement ::=
-                 'if' exp block ';'
+    if_statement ::= 'if' exp block ';'
  */
