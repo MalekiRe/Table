@@ -3,6 +3,7 @@ use ariadne::{Cache, Source};
 
 pub mod ir;
 pub mod parser;
+mod parser2;
 
 pub struct FileHolder {
     pub(crate) files: Vec<Source>,

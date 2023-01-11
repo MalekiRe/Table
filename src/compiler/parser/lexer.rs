@@ -1,5 +1,5 @@
 use chumsky::prelude::{filter, just, one_of, Simple, skip_then_retry_until, take_until};
-use chumsky::{Parser, text};
+use chumsky::{Parser, Span, text};
 use chumsky::text::TextParser;
 use crate::compiler::parser::error::ErrorT;
 use crate::compiler::parser::span::TSpan;
@@ -27,7 +27,22 @@ pub enum BooleanValues {
     True,
     False
 }
-
+pub fn lex(source: &str) -> (Option<Vec<(Token, TSpan)>>, Vec<ErrorT>){
+    let len = source.chars().count();
+    let my_span = Span::new(0, len..len);
+    let (tokens, mut lex_errors) = lexer()
+        .parse_recovery(chumsky::Stream::from_iter(
+            my_span,
+            source
+                .chars()
+                .enumerate()
+                .map(|(i, c)| (c, TSpan::new(0, i..i + 1))),
+        ));
+    return match tokens {
+        None => (None, lex_errors),
+        Some(tokens) => (Some(tokens), vec![]),
+    }
+}
 pub fn lexer() -> impl Parser<char, Vec<(Token, TSpan)>, Error =ErrorT> {
     let decimal = text::int(10)
         .chain::<char, _, _>(just('.').chain(text::digits(10)))
