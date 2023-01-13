@@ -1,42 +1,35 @@
-use crate::compiler::parser2::scanner::{Action, Scanner};
-use crate::compiler::parser::lexer::Token;
+use crate::compiler::parser2::lexer::Token;
+use crate::compiler::parser::span::TSpan;
 
-mod scanner;
 
-fn parse_source(source: &str) {
-    let mut scanner = Scanner::new(source);
-
-}
-enum Atom {
-    Number(f32),
-    Boolean(bool),
-    String(String),
-    FnCall,
-}
-enum Exp {
-    Atom(Atom),
-    BinaryExp(BinaryExp),
-}
-struct BinaryExp {
-    lhs: Atom,
-    op: BinaryOp,
-    rhs: Atom,
-}
-enum BinaryOp {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-}
+mod lexer;
+mod parser;
+mod error;
 
 #[cfg(test)]
 mod parser_test {
-    use crate::compiler::parser2::parse_source;
+    use crate::compiler::parser2::parser::parse;
 
     #[test]
-    fn basic_true() {
-        let str = "true";
-        parse_source(str);
+    fn basic_literal() {
+        parse("true").unwrap();
+        parse("false").unwrap();
+        parse("'a'").unwrap();
+        parse(r#"'\n'"#).unwrap();
+        parse("1").unwrap();
+        parse("1.2").unwrap();
+        parse(r#""hi""#).unwrap();
+        parse(r#""\"hi\"""#).unwrap();
+    }
+    #[test]
+    fn statement_exp() {
+        parse("1").unwrap();
+        parse("1;").unwrap();
+        parse("1;1").unwrap();
+    }
+    #[test]
+    fn add() {
+        let str = "1 ++ 2";
     }
     #[test]
     fn let_statement() {
@@ -111,6 +104,20 @@ exp ::=
     range_creation   |
     macro_call       |
     literal_code     |
+    literal          |
+
+literal ::=
+        "'" CHAR? "'" |
+        '"' CHAR* '"' |
+        INTEGER ('.' INTEGER)?
+        'true' | 'false' |
+        table_literal    |
+
+CHAR ::= A-z
+INTEGER ::= 0-9
+
+table_literal ::=
+              '(' (ident ':')? exp ')' // trailing commas
 
 control_flow_exp ::=
                  match_exp  |

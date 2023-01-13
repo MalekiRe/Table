@@ -8,6 +8,7 @@ mod parser2;
 pub struct FileHolder {
     pub(crate) files: Vec<Source>,
 }
+
 impl FileHolder {
     pub fn from(file: String) -> Self {
         Self {

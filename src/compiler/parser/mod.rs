@@ -12,7 +12,7 @@ use crate::ir::{BinaryOp, BinaryOperation, Block, BStatement, EqualityOp, Exp, E
 
 pub mod lexer;
 pub mod error;
-mod span;
+pub(crate) mod span;
 mod testing;
 
 pub trait TParser<T> = chumsky::Parser<Token, T, Error =ErrorT> + Clone;
