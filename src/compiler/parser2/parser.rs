@@ -4,11 +4,11 @@ use chumsky::{Parser, select, Span};
 use chumsky::text::ident;
 use crate::compiler::FileHolder;
 use crate::compiler::ir::IdentifierT;
-use crate::compiler::parser2::lexer::{Control, lexer, Literal, Operator, Token};
+use crate::compiler::parser2::lexer::{Control, Keyword, lexer, Literal, Operator, Token};
 use crate::compiler::parser2::error::{ErrorKind, ErrorT, Pattern};
 use crate::compiler::parser2::lexer::Control::{Colon, Comma, LeftParen, LeftSquare, RightParen, RightSquare};
 use crate::compiler::parser2::parser::ParseResult::{ParseErr, ParseOk};
-use crate::compiler::parser2::parser::parsing_ir::{ArrowType, BinaryExp, Block, Exp, ExpBlock, ExpStatement, File, FnCall, FnCallArgs, FnDec, FnDecArgs, RangeCreation, Statement, TableExp, TableFieldAccess, TableIndexing, TableLiteral, TableLiteralEntry, TableMethodCall};
+use crate::compiler::parser2::parser::parsing_ir::{ArrowType, BinaryExp, Block, Exp, ExpBlock, ExpStatement, File, FnCall, FnCallArgs, FnDec, FnDecArgs, LetStatement, RangeCreation, ReassignStatement, Statement, TableAssign, TableExp, TableFieldAccess, TableIndexing, TableLiteral, TableLiteralEntry, TableMethodCall, TableStaticCall, UniqueIdentTableAssign, Variable};
 use crate::compiler::parser::error;
 use crate::compiler::parser::span::TSpan;
 
@@ -119,7 +119,7 @@ pub fn exp() -> impl TParser<Exp> {
         let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
         let range_creation = range_creation(exp.clone()).map(Exp::RangeCreation);
         let fn_dec = fn_dec(block.clone()).map(Exp::FnDec);
-        let table_exp = table_exp(exp.clone()).map(Exp::TableExp);
+        let table_exp = table_exp(exp.clone(), statement.clone()).map(Exp::TableExp);
 
         range_creation.or(exp_block).or(fn_dec).or(table_exp).or(fn_call).or(literal)
     })
@@ -133,27 +133,31 @@ pub fn identifier() -> impl TParser<IdentifierT> {
 }
 //table_exp
 //{
-pub fn table_exp(exp: impl TParser<Exp> + 'static) -> impl TParser<TableExp> {
+pub fn table_exp(exp: impl TParser<Exp> + 'static, statement: impl TParser<Statement> + 'static) -> impl TParser<TableExp> {
     recursive(|table_exp| {
-        let statement = statement(exp.clone());
+        let table = _table(exp.clone(), statement.clone());
 
-        let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
-        //let binary_exp; //TODO
-        let exp_block = exp_block(statement, exp.clone()).map(Exp::ExpBlock);
-        //let control_flow_exp; //TODO
-        let table_literal = table_literal(exp.clone()).map(parsing_ir::Literal::TableLiteral).map(Exp::Literal);
-
-        let table = table_literal.or(fn_call.or(exp_block));
-
-        let table_indexing = table_indexing(table.clone(), exp.clone()).map(TableExp::TableIndexing);
+        let table_indexing = table_indexing(table.clone(), exp.clone(), statement.clone()).map(TableExp::TableIndexing);
         let table_field_access = table_field_access(table.clone()).map(TableExp::TableFieldAccess);
         let table_method_call = table_method_call(table.clone(), exp.clone()).map(TableExp::TableMethodCall);
+        let table_static_call = table_static_call(table.clone(), exp.clone()).map(TableExp::TableStaticCall);
 
-        table_indexing.or(table_method_call).or(table_field_access)
+        table_indexing.or(table_method_call).or(table_static_call).or(table_field_access)
     })
 }
-pub fn table_indexing(table: impl TParser<Exp>, exp: impl TParser<Exp> + 'static) -> impl TParser<TableIndexing> {
-    let statement = statement(exp.clone());
+/// for internal use
+pub fn _table(exp: impl TParser<Exp>, statement: impl TParser<Statement>) -> impl TParser<Exp> {
+
+    let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
+    //let binary_exp; //TODO
+    let exp_block = exp_block(statement, exp.clone()).map(Exp::ExpBlock);
+    //let control_flow_exp; //TODO
+    let table_literal = table_literal(exp.clone()).map(parsing_ir::Literal::TableLiteral).map(Exp::Literal);
+
+    let table = table_literal.or(fn_call.or(exp_block));
+    table
+}
+pub fn table_indexing(table: impl TParser<Exp>, exp: impl TParser<Exp>, statement: impl TParser<Statement>) -> impl TParser<TableIndexing> {
 
     let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
     //let binary_exp; //TODO
@@ -185,6 +189,16 @@ pub fn table_method_call(table: impl TParser<Exp>, exp: impl TParser<Exp>) -> im
         .then(fn_call(exp))
         .map(|(table, fn_call)| {
             TableMethodCall {
+                table: Box::new(table),
+                fn_call
+            }
+        })
+}
+pub fn table_static_call(table: impl TParser<Exp>, exp: impl TParser<Exp>) -> impl TParser<TableStaticCall> {
+    table.then_ignore(just(Token::Control(Control::Colon)).repeated().exactly(2))
+        .then(fn_call(exp))
+        .map(|(table, fn_call)| {
+            TableStaticCall {
                 table: Box::new(table),
                 fn_call
             }
@@ -253,13 +267,89 @@ pub fn exp_block(statement: impl TParser<Statement>, exp: impl TParser<Exp>) -> 
             }
         })
 }
+//statement
+//{
 pub fn statement(exp: impl TParser<Exp> + 'static) -> impl TParser<Statement> {
     recursive(|statement| {
-        exp_statement(exp.clone()).map(Statement::ExpStatement)
+        let exp_statement = exp_statement(exp.clone()).map(Statement::ExpStatement);
+        let let_statement = let_statement(exp.clone()).map(Statement::LetStatement);
+        let reassign_statement = reassign_statement(exp.clone(), statement.clone()).map(Statement::ReassignStatement);
+        let_statement.or(reassign_statement).or(exp_statement)
     })
 }
 pub fn exp_statement(exp: impl TParser<Exp>) -> impl TParser<ExpStatement> {
     exp.then_ignore(just(Token::Control(Control::Semicolon))).map(Box::new)
+}
+pub fn let_statement(exp: impl TParser<Exp>) -> impl TParser<LetStatement> {
+    let uninit = r#let().ignore_then(identifier()).then_ignore(semicolon())
+        .map(|identifier| {
+            LetStatement::Uninitialized(identifier)
+        });
+    let simple = r#let().ignore_then(identifier()).then_ignore(equals())
+        .then(exp.clone()).then_ignore(semicolon())
+        .map(|(identifier, lhs)| {
+            LetStatement::SingleAssign(identifier, Box::new(lhs))
+        });
+
+    let table_syntax_without_ident = r#let().ignore_then(
+        identifier().separated_by(comma()).delimited_by(left_paren(), right_paren())
+    ).then_ignore(equals()).then(exp.clone()).then_ignore(semicolon())
+        .map(|(table, exp)| {
+            LetStatement::Table(TableAssign {
+                table,
+                exp: Box::new(exp)
+            })
+        });
+    let table_syntax_with_ident = r#let().ignore_then(
+        identifier().then_ignore(colon()).then(identifier())
+            .separated_by(comma()).delimited_by(left_paren(), right_paren())
+    ).then_ignore(equals()).then(exp).then_ignore(semicolon())
+        .map(|(table, exp)| {
+            LetStatement::UniqueIdentTable(UniqueIdentTableAssign {
+                table,
+                exp: Box::new(exp)
+            })
+        });
+    uninit.or(simple).or(table_syntax_with_ident).or(table_syntax_without_ident)
+}
+pub fn reassign_statement(exp: impl TParser<Exp>, statement: impl TParser<Statement>) -> impl TParser<ReassignStatement> {
+    let single = variable(exp.clone(), statement.clone()).then_ignore(equals()).then(exp.clone()).then_ignore(semicolon())
+        .map(|(var, exp)| {
+            ReassignStatement::SingleVarAssign(var, Box::new(exp))
+        });
+
+    single
+}
+//}
+pub fn variable(exp: impl TParser<Exp>, statement: impl TParser<Statement>) -> impl TParser<Variable> {
+    let table = _table(exp.clone(), statement.clone());
+    let table_indexing = table_indexing(table.clone(), exp.clone(), statement.clone())
+        .map(Variable::TableIndexing);
+    let table_field_access = table_field_access(table.clone())
+        .map(Variable::TableFieldAccess);
+    let identifier = identifier().map(Variable::Identifier);
+    table_field_access.or(table_indexing).or(identifier)
+}
+pub fn colon() -> impl TParser<Token> {
+    just(Token::Control(Control::Colon))
+}
+pub fn equals() -> impl TParser<Token> {
+    just(Token::Operator(Operator::Equals))
+}
+pub fn left_paren() -> impl TParser<Token> {
+    just(Token::Control(Control::LeftParen))
+}
+pub fn right_paren() -> impl TParser<Token> {
+    just(Token::Control(Control::RightParen))
+}
+pub fn comma() -> impl TParser<Token> {
+    just(Token::Control(Control::Comma))
+}
+pub fn r#let() -> impl TParser<Token> {
+    just(Token::Keyword(Keyword::Let))
+}
+pub fn semicolon() -> impl TParser<Token> {
+    just(Token::Control(Control::Semicolon))
 }
 pub fn simple_literal() -> impl TParser<parsing_ir::Literal> {
     select!{
@@ -387,6 +477,7 @@ mod parsing_ir {
         MacroCall(MacroCall),
         LiteralCode(LiteralCode),
         Literal(Literal),
+        VariableIdentifier(IdentifierT),
     }
     #[derive(Clone, Debug)]
     pub enum Literal {
@@ -467,8 +558,8 @@ mod parsing_ir {
     }
     #[derive(Clone, Debug)]
     pub struct TableStaticCall {
-        table: BExp,
-        fn_call: FnCall,
+        pub(crate) table: BExp,
+        pub(crate) fn_call: FnCall,
     }
     #[derive(Clone, Debug)]
     pub enum Statement {
@@ -528,13 +619,13 @@ mod parsing_ir {
     }
     #[derive(Clone, Debug)]
     pub struct TableAssign {
-        table: Vec<IdentifierT>,
-        exp: BExp,
+        pub(crate) table: Vec<IdentifierT>,
+        pub(crate) exp: BExp,
     }
     #[derive(Clone, Debug)]
     pub struct UniqueIdentTableAssign {
-        table: Vec<(IdentifierT, IdentifierT)>,
-        exp: BExp,
+        pub(crate) table: Vec<(IdentifierT, IdentifierT)>,
+        pub(crate) exp: BExp,
     }
     #[derive(Clone, Debug)]
     pub struct IfStatement {

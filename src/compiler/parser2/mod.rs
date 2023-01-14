@@ -79,6 +79,35 @@ mod parser_test {
         parse("foo(1,2).b(1, 2, 3)").unwrap();
         parse("(1, 2, 3).a()").unwrap();
     }
+    #[test]
+    fn table_static_call() {
+        parse("(a: 1, 2, b: \"hii\")::a()").unwrap();
+        parse("foo(1,2)::b(1, 2, 3)").unwrap();
+        parse("(1, 2, 3)::a()").unwrap();
+    }
+    #[test]
+    fn uninit_let() {
+        parse("let x;").unwrap();
+    }
+    #[test]
+    fn simple_let() {
+        parse("let x = foo();").unwrap();
+        parse("let my_var = (1, a: 2, 3)[1..2];").unwrap();
+    }
+    #[test]
+    fn complex_let_no_ident() {
+        parse("let (a, b, c) = foo();").unwrap();
+        parse("let (something, another) = (1, a: 2, 3)[1..2];").unwrap();
+    }
+    #[test]
+    fn complex_let_with_ident() {
+        parse("let (a: z, b: y, c: z) = foo();").unwrap();
+        let y = parse("let (heyy: something, yooo: another) = (1, a: 2, 3)[1..2];").unwrap();
+    }
+    #[test]
+    fn simple_reassignment() {
+        parse("x = foo();");
+    }
 
 }
 /*
@@ -142,6 +171,7 @@ exp ::=
     macro_call       |
     literal_code     |
     literal          |
+    variable_identifier
 
 literal ::=
         "'" CHAR? "'" |
