@@ -5,6 +5,10 @@ use crate::compiler::parser::span::TSpan;
 mod lexer;
 mod parser;
 mod error;
+mod tokens;
+mod table_exp;
+mod parsing_ir;
+mod statement;
 
 #[cfg(test)]
 mod parser_test {
