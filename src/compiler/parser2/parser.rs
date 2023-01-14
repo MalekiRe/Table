@@ -1,11 +1,15 @@
 use std::fmt::{Debug, Display, Formatter};
-use chumsky::prelude::{any, empty, end, just, recursive};
+use chumsky::prelude::{any, empty, end, filter_map, just, recursive};
 use chumsky::{Parser, select, Span};
+use chumsky::text::ident;
 use crate::compiler::FileHolder;
-use crate::compiler::parser2::lexer::{Control, lexer, Literal, Token};
-use crate::compiler::parser2::error::{ErrorT, Pattern};
+use crate::compiler::ir::IdentifierT;
+use crate::compiler::parser2::lexer::{Control, lexer, Literal, Operator, Token};
+use crate::compiler::parser2::error::{ErrorKind, ErrorT, Pattern};
+use crate::compiler::parser2::lexer::Control::{Colon, Comma, LeftParen, LeftSquare, RightParen, RightSquare};
 use crate::compiler::parser2::parser::ParseResult::{ParseErr, ParseOk};
-use crate::compiler::parser2::parser::parsing_ir::{Block, Exp, ExpStatement, File, Statement};
+use crate::compiler::parser2::parser::parsing_ir::{ArrowType, BinaryExp, Block, Exp, ExpBlock, ExpStatement, File, FnCall, FnCallArgs, FnDec, FnDecArgs, RangeCreation, Statement, TableExp, TableFieldAccess, TableIndexing, TableLiteral, TableLiteralEntry, TableMethodCall};
+use crate::compiler::parser::error;
 use crate::compiler::parser::span::TSpan;
 
 pub trait TParser<T> = chumsky::Parser<Token, T, Error =ErrorT> + Clone;
@@ -91,32 +95,165 @@ pub fn parse(src: &str) -> ParseResult<File>{
     }
 }
 pub fn file() -> impl TParser<parsing_ir::File> {
-    let block = block();
-    let exp = exp(block.clone());
-    let statement = statement(block.clone(), exp.clone());
-    block.clone().then_ignore(end()).map(File::Block)
-        .or(statement.clone().repeated().then(exp).map(|(statements, exp)| {
-            File::StatementsExp(statements.into_iter().map(Box::new).collect(), Box::new(exp))
-        }))
-        .or(statement.clone().repeated().at_least(1).map(|s| {
-            File::Statements(s.into_iter().map(Box::new).collect())
-        }))
-        .or(any().not().to(File::Empty))
-}
-pub fn block() -> impl TParser<Block> {
-    recursive(|block| {
-        let exp = exp(block.clone());
-        let statement = statement(block.clone(), exp.clone());
-        statement.map(Box::new).map(Block::Statement)
-            .or(exp.map(Box::new).map(Block::Exp))
+    let exp = exp();
+    let statement = statement(exp.clone());
+    statement.clone().repeated().then(exp).then_ignore(end()).map(|(statements, exp)| {
+        File::StatementsExp(statements.into_iter().map(Box::new).collect(), Box::new(exp))
     })
+    .or(statement.clone().repeated().then_ignore(end()).map(|s| {
+        File::Statements(s.into_iter().map(Box::new).collect())
+    }))
+        //.or(any().not().then_ignore(end()).to(File::Empty))
 }
-pub fn exp(block: impl TParser<Block> + 'static) -> impl TParser<Exp> {
+pub fn block(exp: impl TParser<Exp>, statement: impl TParser<Statement>) -> impl TParser<Block> {
+    exp.map(|e| Block::Exp(Box::new(e)))
+        .or(statement.map(|s| Block::Statement(Box::new(s))))
+}
+pub fn exp() -> impl TParser<Exp> {
     recursive(|exp| {
-        literal(exp.clone()).map(Exp::Literal)
+        let statement = statement(exp.clone());
+        let block = block(exp.clone(), statement.clone());
+
+        let literal = literal(exp.clone()).map(Exp::Literal);
+        let exp_block = exp_block(statement.clone(), exp.clone()).map(Exp::ExpBlock);
+        let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
+        let range_creation = range_creation(exp.clone()).map(Exp::RangeCreation);
+        let fn_dec = fn_dec(block.clone()).map(Exp::FnDec);
+        let table_exp = table_exp(exp.clone()).map(Exp::TableExp);
+
+        range_creation.or(exp_block).or(fn_dec).or(table_exp).or(fn_call).or(literal)
     })
 }
-pub fn statement(block: impl TParser<Block> + 'static, exp: impl TParser<Exp> + 'static) -> impl TParser<Statement> {
+pub fn identifier() -> impl TParser<IdentifierT> {
+    let ident = filter_map(|span, tok| match tok {
+        Token::Identifier(ident) => Ok(ident.clone()),
+        _ => Err(ErrorT::new(ErrorKind::Unexpected(Pattern::TermIdent), span)),
+    });
+    ident
+}
+//table_exp
+//{
+pub fn table_exp(exp: impl TParser<Exp> + 'static) -> impl TParser<TableExp> {
+    recursive(|table_exp| {
+        let statement = statement(exp.clone());
+
+        let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
+        //let binary_exp; //TODO
+        let exp_block = exp_block(statement, exp.clone()).map(Exp::ExpBlock);
+        //let control_flow_exp; //TODO
+        let table_literal = table_literal(exp.clone()).map(parsing_ir::Literal::TableLiteral).map(Exp::Literal);
+
+        let table = table_literal.or(fn_call.or(exp_block));
+
+        let table_indexing = table_indexing(table.clone(), exp.clone()).map(TableExp::TableIndexing);
+        let table_field_access = table_field_access(table.clone()).map(TableExp::TableFieldAccess);
+        let table_method_call = table_method_call(table.clone(), exp.clone()).map(TableExp::TableMethodCall);
+
+        table_indexing.or(table_method_call).or(table_field_access)
+    })
+}
+pub fn table_indexing(table: impl TParser<Exp>, exp: impl TParser<Exp> + 'static) -> impl TParser<TableIndexing> {
+    let statement = statement(exp.clone());
+
+    let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
+    //let binary_exp; //TODO
+    //let control_flow_exp; //TODO
+    let range_creation = range_creation(exp.clone()).map(Exp::RangeCreation);
+    let exp_block = exp_block(statement, exp.clone()).map(Exp::ExpBlock);
+    let simple_literal = simple_literal().map(Exp::Literal);
+
+    let index = range_creation.or(fn_call.or(exp_block.or(simple_literal)));
+    table.then(index.delimited_by(just(Token::Control(LeftSquare)), just(Token::Control(RightSquare))))
+        .map(|(table, index)| {
+            TableIndexing {
+                table: Box::new(table),
+                index: Box::new(index)
+            }
+        })
+}
+pub fn table_field_access(table: impl TParser<Exp>) -> impl TParser<TableFieldAccess> {
+    table.then_ignore(just(Token::Control(Control::Dot))).then(identifier())
+        .map(|(table, field)| {
+            TableFieldAccess {
+                table: Box::new(table),
+                field
+            }
+        })
+}
+pub fn table_method_call(table: impl TParser<Exp>, exp: impl TParser<Exp>) -> impl TParser<TableMethodCall> {
+    table.then_ignore(just(Token::Control(Control::Dot)))
+        .then(fn_call(exp))
+        .map(|(table, fn_call)| {
+            TableMethodCall {
+                table: Box::new(table),
+                fn_call
+            }
+        })
+}
+
+
+//}
+pub fn fn_call_args(exp: impl TParser<Exp>) -> impl TParser<FnCallArgs> {
+    let with_args = exp.separated_by(just(Token::Control(Control::Comma))).allow_trailing()
+        .delimited_by(just(Token::Control(LeftParen)), just(Token::Control(RightParen)))
+        .map(|args| {
+            FnCallArgs {
+                args: args.into_iter().map(Box::new).collect()
+            }
+        });
+    with_args
+}
+pub fn fn_call(exp: impl TParser<Exp>) -> impl TParser<FnCall> {
+    identifier().then(fn_call_args(exp))
+        .map(|(ident, args)| {
+            FnCall {
+                ident,
+                fn_call_args: args
+            }
+        })
+}
+pub fn fn_dec_args() -> impl TParser<FnDecArgs> {
+    let with_args = identifier().separated_by(just(Token::Control(Comma))).allow_trailing()
+        .delimited_by(just(Token::Control(LeftParen)), just(Token::Control(RightParen)))
+        .map(|args| {
+            FnDecArgs {
+                args
+            }
+        });
+    with_args
+}
+pub fn fn_dec(block: impl TParser<Block>) -> impl TParser<FnDec> {
+    fn_dec_args().then_ignore(just(Token::Operator(Operator::SkinnyArrow))).then(block)
+        .map(|(dec_args,  block)| {
+            FnDec {
+                dec_args,
+                body: block
+            }
+        })
+}
+pub fn range_creation(exp: impl TParser<Exp>) -> impl TParser<RangeCreation> {
+    let literal = literal(exp.clone()).map(Exp::Literal);
+    let fn_call = fn_call(exp.clone()).map(Exp::FnCall);
+
+    let exp = literal.or(fn_call);
+    exp.clone().then_ignore(just(Token::Operator(Operator::Range))).then(exp)
+        .map(|(lhs, rhs)| {
+            RangeCreation {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs)
+            }
+        })
+}
+pub fn exp_block(statement: impl TParser<Statement>, exp: impl TParser<Exp>) -> impl TParser<ExpBlock> {
+    statement.repeated().then(exp).delimited_by(just(Token::Control(Control::LeftCurly)), just(Token::Control(Control::RightCurly)))
+        .map(|(statements, exp)| {
+            ExpBlock {
+                statements: statements.into_iter().map(Box::new).collect(),
+                exp: Box::new(exp)
+            }
+        })
+}
+pub fn statement(exp: impl TParser<Exp> + 'static) -> impl TParser<Statement> {
     recursive(|statement| {
         exp_statement(exp.clone()).map(Statement::ExpStatement)
     })
@@ -124,15 +261,33 @@ pub fn statement(block: impl TParser<Block> + 'static, exp: impl TParser<Exp> + 
 pub fn exp_statement(exp: impl TParser<Exp>) -> impl TParser<ExpStatement> {
     exp.then_ignore(just(Token::Control(Control::Semicolon))).map(Box::new)
 }
-pub fn literal(exp: impl TParser<Exp>) -> impl TParser<parsing_ir::Literal> {
-    let simple_literals = select!{
+pub fn simple_literal() -> impl TParser<parsing_ir::Literal> {
+    select!{
         Token::Literal(Literal::Char(c)) => parsing_ir::Literal::Char(c),
         Token::Literal(Literal::Boolean(b)) => parsing_ir::Literal::Boolean(b),
         Token::Literal(Literal::String(s)) => parsing_ir::Literal::String(s),
         Token::Literal(Literal::Number(lhs, rhs)) => parsing_ir::Literal::Number(format!("{}.{}", lhs, rhs).parse().unwrap())
-    };
-    let literal = simple_literals;
-    literal.map_err(|e: ErrorT| e.expected(Pattern::Literal))
+    }
+}
+pub fn literal(exp: impl TParser<Exp>) -> impl TParser<parsing_ir::Literal> {
+    let simple_literal = simple_literal();
+    let table_literal = table_literal(exp).map(parsing_ir::Literal::TableLiteral);
+    simple_literal.or(table_literal).map_err(|e: ErrorT| e.expected(Pattern::Literal))
+}
+pub fn table_literal(exp: impl TParser<Exp>) -> impl TParser<parsing_ir::TableLiteral> {
+    let entry = identifier().then_ignore(just(Token::Control(Colon))).or_not().then(exp)
+        .map(|(ident, exp)| {
+            TableLiteralEntry {
+                ident,
+                val: Box::new(exp)
+            }
+        });
+    entry.separated_by(just(Token::Control(Comma))).allow_trailing().delimited_by(just(Token::Control(LeftParen)), just(Token::Control(RightParen)))
+        .map(|entries| {
+            TableLiteral {
+                values: entries
+            }
+        })
 }
 mod parsing_ir {
     use crate::compiler::parser2::lexer::Token;
@@ -142,32 +297,31 @@ mod parsing_ir {
     pub type BStatement = Box<Statement>;
 
     pub type ExpStatement = BExp;
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum OrInference<T> {
         Inference,
         Other(T),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct FnCallArgs {
-        args: Vec<BExp>,
+        pub(crate) args: Vec<BExp>,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct FnDecArgs {
-        args: Vec<IdentifierT>,
+        pub(crate) args: Vec<IdentifierT>,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum Block {
         Exp(BExp),
         Statement(BStatement),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum File {
-        Block(Block),
         StatementsExp(Vec<BStatement>, BExp),
-        Statements(Vec<BStatement>), //at least 1
-        Empty,
+        Statements(Vec<BStatement>),
+        //Empty,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum MacroCall {
         Standard {
             ident: IdentifierT,
@@ -178,21 +332,21 @@ mod parsing_ir {
             fn_call_args: FnCallArgs,
         }
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum Variable {
         Identifier(IdentifierT),
         TableIndexing(TableIndexing),
         TableFieldAccess(TableFieldAccess),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct LiteralCode(Vec<Token>);
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct BinaryExp {
         lhs: BExp,
         op: BinaryOperator,
         rhs: BExp,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum BinaryOperator {
         Add,
         Subtract,
@@ -201,27 +355,27 @@ mod parsing_ir {
         Modulus,
         //todo the rest
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct FnCall {
-        ident: IdentifierT,
-        fn_call_args: FnCallArgs,
+        pub(crate) ident: IdentifierT,
+        pub(crate) fn_call_args: FnCallArgs,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct FnDec {
-        dec_args: FnDecArgs,
-        body: Block,
+        pub(crate) dec_args: FnDecArgs,
+        pub(crate) body: Block,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct ExpBlock {
-        statements: Vec<BStatement>,
-        exp: BExp,
+        pub(crate) statements: Vec<BStatement>,
+        pub(crate) exp: BExp,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct RangeCreation {
-        lhs: BExp,
-        rhs: BExp,
+        pub(crate) lhs: BExp,
+        pub(crate) rhs: BExp,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum Exp {
         BinaryExp(BinaryExp),
         ExpBlock(ExpBlock),
@@ -234,7 +388,7 @@ mod parsing_ir {
         LiteralCode(LiteralCode),
         Literal(Literal),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum Literal {
         Char(char),
         Number(f32),
@@ -242,76 +396,81 @@ mod parsing_ir {
         String(String),
         TableLiteral(TableLiteral),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct TableLiteral {
-        values: Vec<(Option<IdentifierT>, BExp)>
+        pub(crate) values: Vec<TableLiteralEntry>
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
+    pub struct TableLiteralEntry {
+        pub(crate) ident: Option<IdentifierT>,
+        pub(crate) val: BExp
+    }
+    #[derive(Clone, Debug)]
     pub enum ControlFlowExp {
         MatchExp(MatchExp),
         LoopExp(LoopExp),
         ForExp(ForExp),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct ForExp {
         key: IdentifierT,
         list: BExp,
         body: Block,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct LoopExp {
         body: Block
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct MatchExp {
         matchee: Option<BExp>,
         body: Vec<MatchBody>,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct MatchBody {
         head: MatchHead,
         arrow_type: ArrowType,
         body: Block,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum ArrowType {
         Thick,
         Thin,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum MatchHead {
         ExpWithoutSemicolon(OrInference<BExp>),
         ExpWithSemicolon(OrInference<BExp>),
         ExpWithConditional(OrInference<BExp>, BExp),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum TableExp {
         TableIndexing(TableIndexing),
         TableMethodCall(TableMethodCall),
         TableStaticCall(TableStaticCall),
         TableFieldAccess(TableFieldAccess),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct TableIndexing {
-        table: BExp,
-        index: BExp,
+        pub(crate) table: BExp,
+        pub(crate) index: BExp,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct TableFieldAccess {
-        table: BExp,
-        field: IdentifierT,
+        pub(crate) table: BExp,
+        pub(crate) field: IdentifierT,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct TableMethodCall {
-        table: BExp,
-        fn_call_args: FnCallArgs,
+        pub(crate) table: BExp,
+        pub(crate) fn_call: FnCall,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct TableStaticCall {
         table: BExp,
-        fn_call_args: FnCallArgs,
+        fn_call: FnCall,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum Statement {
         StatementBlock(StatementBlock),
         LetStatement(LetStatement),
@@ -323,61 +482,61 @@ mod parsing_ir {
         MacroCall(MacroCall),
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum ReturnStatement {
         NoReturnValue,
         Exp(BExp),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum BreakStatement {
         NumberWithExp(u32, BExp),
         WithExp(BExp),
         Number(u32),
         Empty,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct StatementBlock {
         statements: Vec<BStatement>,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum ReassignStatement {
         SingleVarAssign(Variable, BExp),
         Table(TableReassign),
         UniqueIdentTable(UniqueIdentTableReassign),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct TableReassign {
         table: Vec<LetIdentOrVar>,
         exp: BExp,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum LetIdentOrVar {
         LetIdent(IdentifierT),
         Var(Variable),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct UniqueIdentTableReassign {
         table: Vec<(IdentifierT, LetIdentOrVar)>,
         exp: BExp,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub enum LetStatement {
         Uninitialized(IdentifierT),
         SingleAssign(IdentifierT, BExp),
         Table(TableAssign),
         UniqueIdentTable(UniqueIdentTableAssign),
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct TableAssign {
         table: Vec<IdentifierT>,
         exp: BExp,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct UniqueIdentTableAssign {
         table: Vec<(IdentifierT, IdentifierT)>,
         exp: BExp,
     }
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct IfStatement {
         conditional: BExp,
         body: Block,

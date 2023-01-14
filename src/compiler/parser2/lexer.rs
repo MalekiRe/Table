@@ -37,10 +37,11 @@ pub enum Control {
     RightCurly,
     Dot,
     Comma,
-    RightArrow,
 }
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum Operator {
+    SkinnyArrow,
+    FatArrow,
     PlusEquals,
     MinusEquals,
     DivideEquals,
@@ -116,6 +117,8 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, TSpan)>, Error =ErrorT> {
         .map(|c| Token::Literal(Literal::Char(c)))
         .labelled("char");
     let operator = choice((
+        just("->").to(Operator::SkinnyArrow),
+        just("=>").to(Operator::FatArrow),
         just("++").to(Operator::PlusPlus),
         just("--").to(Operator::MinusMinus),
         just("..").to(Operator::Range),

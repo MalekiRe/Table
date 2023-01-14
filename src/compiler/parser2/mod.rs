@@ -28,19 +28,56 @@ mod parser_test {
         parse("1;1").unwrap();
     }
     #[test]
-    fn add() {
-        let str = "1 ++ 2";
+    fn exp_block() {
+        parse("{1; 1; 1}").unwrap();
     }
     #[test]
-    fn let_statement() {
-        let str = r#"
-let x = 1;
-        "#;
+    fn fn_call() {
+        parse("foo()").unwrap();
+        parse("my_func(1, 2, 3)").unwrap();
+        parse("foo(bar(1), 2, 3)").unwrap();
     }
-    fn destructuring() {
-        let str = r#"
-let (x, y, z) = something;
-        "#;
+    #[test]
+    fn range_creation() {
+        parse("0..2").unwrap();
+        parse("foo(1)..bar()").unwrap();
+        parse("foo(1..2)").unwrap();
+        parse("foo(foo(1..2)..2)..bar()").unwrap();
+    }
+    #[test]
+    fn fn_dec() {
+        parse("(a, b, c) -> 1").unwrap();
+        parse("() -> print(\"hi\");").unwrap();
+        parse("() -> foo()").unwrap();
+    }
+    #[test]
+    fn empty_file() {
+        parse("").unwrap();
+    }
+    #[test]
+    fn table_literal() {
+        parse("(1, 2, 3)").unwrap();
+        parse("(a: 1, 2, b: \"hiii\")").unwrap();
+    }
+    #[test]
+    fn table_indexing() {
+        parse(r#"
+        (a: 1, 2, b: "hiii")[1]
+        "#).unwrap();
+        parse("foo(1, 2)[0]").unwrap();
+        parse("foo()[1..3]").unwrap();
+    }
+    #[test]
+    fn table_field_access() {
+        parse("(a: 1, 2, b: \"hii\").a").unwrap();
+        parse("foo(1,2).b").unwrap();
+        parse("(1, 2, 3).a").unwrap();
+    }
+    #[test]
+    fn table_method_call() {
+        parse("(a: 1, 2, b: \"hii\").a()").unwrap();
+        parse("foo(1,2).b(1, 2, 3)").unwrap();
+        parse("(1, 2, 3).a()").unwrap();
     }
 
 }
@@ -142,8 +179,8 @@ table_exp ::=
 
     table_indexing ::= exp '[' exp ']'
     table_field_access ::= exp '.' IDENT
-    table_method_call ::= exp '.' '(' call_args ')'
-    table_static_call ::= exp '::' '(' call_args ')'
+    table_method_call ::= exp '.' IDENT '(' call_args ')'
+    table_static_call ::= exp '::' IDENT '(' call_args ')'
 
 
 statement ::=
