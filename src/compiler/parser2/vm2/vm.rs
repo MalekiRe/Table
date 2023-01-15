@@ -1,6 +1,6 @@
 use crate::compiler::parser2::vm2::bytecode::Bytecode;
 use crate::compiler::parser2::vm2::chunk::Chunk;
-use crate::compiler::parser2::vm2::pointers::{ConstantPointer, HeapPointer, LocalPointer, StackPointer};
+use crate::compiler::parser2::vm2::pointers::{ChunkPointer, ConstantPointer, HeapPointer, LocalDistance, StackPointer};
 use crate::compiler::parser2::vm2::value::{HeapValue, StackValue};
 
 pub struct Vm {
@@ -61,12 +61,17 @@ impl Vm {
     pub fn pop_local(&mut self) -> StackValue {
         self.local.pop().unwrap()
     }
-    pub fn find_local(&self, stack_pointer: LocalPointer) -> StackValue {
-        *self.local.get::<usize>(stack_pointer.into()).unwrap()
-    }
-    pub fn peek_local(&self, distance: usize) -> StackValue {
+    pub fn peek_local(&self, distance: LocalDistance) -> StackValue {
         let len = self.local.len() - 1;
-        *self.chunk().stack.get(len - distance).unwrap()
+        let distance: usize = distance.into();
+        let index = len - distance;
+        *self.local.get(index).unwrap()
+    }
+    pub fn set_local(&mut self, distance: LocalDistance, stack_value: StackValue) {
+        let len = self.local.len() - 1;
+        let distance: usize = distance.into();
+        let index = len - distance;
+        self.local[index] = stack_value;
     }
     pub fn run(&mut self) {
         loop {
@@ -86,7 +91,7 @@ impl Vm {
                 Bytecode::Pop => {
                     self.pop_stack();
                 }
-                Bytecode::JumpIf(_) => {}
+                Bytecode::JumpIf(_) => todo!(),
                 Bytecode::LoadConstant(constant_pointer) => {
                     let stack_value = self.find_constant(constant_pointer);
                     self.push_stack(stack_value);
@@ -96,17 +101,16 @@ impl Vm {
                     let stack_value = heap_value.try_to_stack_value().unwrap();
                     self.push_stack(stack_value);
                 }
-                Bytecode::AllocTable => {}
-                Bytecode::AllocString => {}
+                Bytecode::AllocTable => todo!(),
+                Bytecode::AllocString => todo!(),
                 Bytecode::AllocValue => {
                     let stack_value = self.peek_head_stack();
                     self.heap.push(stack_value.try_to_heap_value().unwrap());
                 }
-                Bytecode::PeekLocal(distance) => todo!(),
-                Bytecode::FindLocal(local_pointer) => {
-                    let stack_value = self.find_local(local_pointer);
+                Bytecode::PeekLocal(distance) => {
+                    let stack_value = self.peek_local(distance);
                     self.push_stack(stack_value);
-                }
+                },
                 Bytecode::PushLocal => {
                     let stack_value = self.peek_head_stack();
                     self.push_local(stack_value);
@@ -119,18 +123,57 @@ impl Vm {
                     let pointer: usize = local_pointer.into();
                     self.local[pointer] = stack_value;
                 }
-                Bytecode::AllocLocal(_) => {}
-                Bytecode::Add => {}
-                Bytecode::Eq => {}
-                Bytecode::Invert => {}
-                Bytecode::GetTableNum => {}
-                Bytecode::GetTableStr => {}
-                Bytecode::SetTableNum => {}
-                Bytecode::SetTableStr => {}
-                Bytecode::PushTableNum => {}
-                Bytecode::PushTableStr => {}
-                Bytecode::PushChar => {}
+                Bytecode::AllocLocal(_) => todo!(),
+                Bytecode::Add => todo!(),
+                Bytecode::Eq => todo!(),
+                Bytecode::Invert => todo!(),
+                Bytecode::GetTableNum => todo!(),
+                Bytecode::GetTableStr => todo!(),
+                Bytecode::SetTableNum => todo!(),
+                Bytecode::SetTableStr => todo!(),
+                Bytecode::PushTableNum => todo!(),
+                Bytecode::PushTableStr => todo!(),
+                Bytecode::PushChar => todo!(),
+                Bytecode::RunChunk => {
+                    let chunk_pointer = self.pop_stack().try_to_chunk_pointer().unwrap();
+                    let chunk = self.chunk_mut().chunks.get::<usize>(chunk_pointer.into()).unwrap().clone();
+                    self.load_chunk(chunk);
+                }
+                Bytecode::Return => {
+                    self.unload_chunk();
+                }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod vm_test {
+    use crate::compiler::parser2::vm2::bytecode::Bytecode;
+    use crate::compiler::parser2::vm2::chunk::Chunk;
+    use crate::compiler::parser2::vm2::pointers::{ConstantPointer, LocalDistance};
+    use crate::compiler::parser2::vm2::value::StackValue;
+    use crate::compiler::parser2::vm2::vm::Vm;
+
+    #[test]
+    fn local_tests() {
+        let bytecode = vec![
+            Bytecode::LoadConstant(ConstantPointer(0)),
+            Bytecode::PushLocal,
+            Bytecode::Pop,
+            Bytecode::LoadConstant(ConstantPointer(1)),
+            Bytecode::PushLocal,
+            Bytecode::Pop,
+            Bytecode::PeekLocal(LocalDistance(1)),
+        ];
+        let constants = vec![
+            StackValue::Boolean(false),
+            StackValue::Number(1.0),
+        ];
+        let chunk = Chunk::from(bytecode, constants);
+        let mut vm = Vm::new();
+        vm.load_chunk(chunk);
+        vm.run();
+        assert_eq!(vm.chunk().stack, vec![StackValue::Boolean(false)])
     }
 }

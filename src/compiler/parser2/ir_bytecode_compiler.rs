@@ -1,26 +1,25 @@
 use std::collections::HashMap;
 use crate::compiler::ir::{IdentifierT};
 use crate::compiler::parser2::parser::parse;
-use crate::compiler::parser2::parsing_ir::{BStatement, Exp, ExpBlock, File, LetStatement, Literal, ReassignStatement, Statement, StatementBlock, Variable};
+use crate::compiler::parser2::parsing_ir::{Block, BStatement, Exp, ExpBlock, File, FnCall, FnCallArgs, FnDec, FnDecArgs, LetStatement, Literal, ReassignStatement, Statement, StatementBlock, Variable};
 use crate::compiler::parser2::vm2::bytecode::Bytecode;
 use crate::compiler::parser2::vm2::chunk::Chunk;
-use crate::compiler::parser2::vm2::pointers::{ConstantPointer, HeapPointer, LocalPointer};
+use crate::compiler::parser2::vm2::pointers::{ChunkPointer, ConstantPointer, HeapPointer, LocalDistance};
 use crate::compiler::parser2::vm2::value::StackValue;
 
 
 #[derive(Debug, Copy, Clone)]
 pub enum Location {
     Heap(HeapPointer),
-    Local(LocalPointer),
+    Local(LocalDistance),
 }
 
 pub struct Scope {
-    local_variables: HashMap<IdentifierT, LocalPointer>,
+    local_variables: HashMap<IdentifierT, usize>,
     heap_variables: HashMap<IdentifierT, HeapPointer>,
 }
 
 pub struct ScopeHolder {
-    local_size: usize,
     heap_size: usize,
     scopes: Vec<Scope>
 }
@@ -29,7 +28,7 @@ impl Default for Scope {
     fn default() -> Self {
         Self {
             local_variables: Default::default(),
-            heap_variables: Default::default()
+            heap_variables: Default::default(),
         }
     }
 }
@@ -37,7 +36,6 @@ impl Default for Scope {
 impl Default for ScopeHolder {
     fn default() -> Self {
         Self {
-            local_size: 0,
             heap_size: 0,
             scopes: vec![Scope::default()]
         }
@@ -45,26 +43,10 @@ impl Default for ScopeHolder {
 }
 
 impl ScopeHolder {
-    pub fn push_local_var(&mut self, identifier: IdentifierT) -> usize {
-        let location = Location::Local(LocalPointer(self.local_size));
-        self.add_var(identifier, location);
-        match location {
-            Location::Heap(a) => {a.0}
-            Location::Local(a) => {a.0}
-        }
-    }
-    fn add_var(&mut self, identifier: IdentifierT, location: Location) {
-        let last = self.scopes.last_mut().unwrap();
-        match location {
-            Location::Heap(heap_pointer) => {
-                last.heap_variables.insert(identifier, heap_pointer);
-                self.heap_size += 1;
-            }
-            Location::Local(local_pointer) => {
-                last.local_variables.insert(identifier, local_pointer);
-                self.local_size += 1;
-            }
-        }
+    pub fn push_local_var(&mut self, identifier: IdentifierT) {
+        let scope = self.scopes.last_mut().unwrap();
+        let len = scope.local_variables.len();
+        scope.local_variables.insert(identifier, len);
     }
     pub fn find_var(&self, identifier: IdentifierT) -> Option<Location> {
         let mut scope_index = self.scopes.len();
@@ -74,7 +56,9 @@ impl ScopeHolder {
             match self.scopes[scope_index].local_variables.get(identifier.as_str()) {
                 None => {}
                 Some(location) => {
-                    return Some(Location::Local(*location))
+                    let len = self.scopes[scope_index].local_variables.len() - 1;
+                    let distance = LocalDistance(len - *location);
+                    return Some(Location::Local(distance))
                 }
             }
             match self.scopes[scope_index].heap_variables.get(identifier.as_str()) {
@@ -93,16 +77,16 @@ impl ScopeHolder {
 }
 
 pub struct IRCompiler {
-    bytecode: Vec<Bytecode>,
-    constants: Vec<StackValue>,
+    chunk: Vec<Chunk>,
     scope_holder: ScopeHolder,
+    local_count: usize,
 }
 impl IRCompiler {
     fn new() -> Self {
         Self {
-            bytecode: vec![],
-            constants: vec![],
-            scope_holder: Default::default()
+            chunk: vec![Chunk::default()],
+            scope_holder: Default::default(),
+            local_count: 0,
         }
     }
     pub fn compile_string(code: &str) -> Chunk {
@@ -112,19 +96,27 @@ impl IRCompiler {
     pub fn compile_file(mut self, file: File) -> Chunk {
         self.file(file);
         match self {
-            IRCompiler { bytecode, constants, scope_holder } => {
-                Chunk::from(bytecode, constants)
+            IRCompiler { mut chunk, .. } => {
+                chunk.pop().unwrap()
             }
         }
     }
-    pub fn add_local_var(&mut self, identifier: IdentifierT) -> usize {
+    pub fn push_code(&mut self, bytecode: Bytecode) {
+        match bytecode {
+            Bytecode::PushLocal => self.local_count += 1,
+            Bytecode::PopLocal => self.local_count -= 1,
+            _ => {}
+        }
+        self.chunk.last_mut().unwrap().bytecode.push(bytecode);
+    }
+    pub fn add_local_var(&mut self, identifier: IdentifierT) {
         self.scope_holder.push_local_var(identifier)
     }
     pub fn add_constant(&mut self, stack_value: StackValue) -> ConstantPointer {
         //TODO add caching so we don't add constants we already have
-        let ptr = ConstantPointer(self.constants.len());
-        self.bytecode.push(Bytecode::LoadConstant(ptr));
-        self.constants.push(stack_value);
+        let ptr = ConstantPointer(self.chunk.last().unwrap().constants.len());
+        self.push_code(Bytecode::LoadConstant(ptr));
+        self.chunk.last_mut().unwrap().constants.push(stack_value);
         ptr
     }
 
@@ -170,7 +162,7 @@ impl IRCompiler {
                     Location::Heap(_) => todo!(),
                     Location::Local(local_pointer) => {
                         self.exp(*exp);
-                        self.bytecode.push(Bytecode::SetLocal(local_pointer));
+                        self.push_code(Bytecode::SetLocal(local_pointer));
                     }
                 }
             }
@@ -190,14 +182,14 @@ impl IRCompiler {
             LetStatement::Uninitialized(identifier) => {
                 self.add_local_var(identifier);
                 self.add_constant(StackValue::Nil);
-                self.bytecode.push(Bytecode::PushLocal);
-                self.bytecode.push(Bytecode::Pop);
+                self.push_code(Bytecode::PushLocal);
+                self.push_code(Bytecode::Pop);
             }
             LetStatement::SingleAssign(identifier, b_exp) => {
                 self.add_local_var(identifier);
                 self.exp(*b_exp);
-                self.bytecode.push(Bytecode::PushLocal);
-                self.bytecode.push(Bytecode::Pop);
+                self.push_code(Bytecode::PushLocal);
+                self.push_code(Bytecode::Pop);
             },
             LetStatement::Table(_) => todo!(),
             LetStatement::UniqueIdentTable(_) => todo!(),
@@ -208,8 +200,8 @@ impl IRCompiler {
         match exp {
             Exp::BinaryExp(_) => todo!(),
             Exp::ExpBlock(exp_block) => self.exp_block(exp_block),
-            Exp::FnCall(_) => todo!(),
-            Exp::FnDec(_) => todo!(),
+            Exp::FnCall(fn_call) => self.fn_call(fn_call),
+            Exp::FnDec(fn_dec) => self.fn_dec(fn_dec),
             Exp::TableExp(_) => todo!(),
             Exp::ControlFlowExp(_) => todo!(),
             Exp::RangeCreation(_) => todo!(),
@@ -218,6 +210,55 @@ impl IRCompiler {
             Exp::Literal(literal) => self.literal(literal),
             Exp::VariableIdentifier(variable_identifier) => self.variable_identifier(variable_identifier),
         }
+    }
+    pub fn fn_call(&mut self, fn_call: FnCall) {
+        match fn_call {
+            FnCall { ident, fn_call_args } => {
+                let location = self.scope_holder.find_var(ident).unwrap();
+                match fn_call_args {
+                    FnCallArgs { args } => {
+                        for b_exp in args {
+                            self.exp(*b_exp);
+                        }
+                    }
+                }
+                match location {
+                    Location::Heap(_) => todo!(),
+                    Location::Local(local_distance) => {
+                        self.push_code(Bytecode::PeekLocal(local_distance))
+                    }
+                }
+                self.push_code(Bytecode::RunChunk);
+            }
+        }
+    }
+    pub fn block(&mut self, block: Block) {
+        match block {
+            Block::Exp(b_exp) => self.exp(*b_exp),
+            Block::Statement(b_statement) => self.statement(*b_statement),
+        }
+    }
+    pub fn fn_dec(&mut self, fn_dec: FnDec) {
+        self.chunk.push(Chunk::default());
+        self.scope_holder.push_scope();
+        match fn_dec {
+            FnDec { dec_args, body } => {
+                match dec_args {
+                    FnDecArgs { args } => {
+                        for arg in args {
+                            self.scope_holder.push_local_var(arg);
+                        }
+                    }
+                }
+                self.block(body);
+                self.push_code(Bytecode::Return);
+            }
+        }
+        self.scope_holder.pop_scope();
+        let chunk = self.chunk.pop().unwrap();
+        self.chunk.last_mut().unwrap().chunks.push(chunk);
+        let chunk_pointer = ChunkPointer(self.chunk.last_mut().unwrap().chunks.len()-1);
+        self.add_constant(StackValue::Chunk(chunk_pointer));
     }
     pub fn exp_block(&mut self, exp_block: ExpBlock) {
         self.scope_holder.push_scope();
@@ -233,8 +274,8 @@ impl IRCompiler {
         let location = self.scope_holder.find_var(variable_identifier).unwrap();
         match location {
             Location::Heap(_) => todo!(),
-            Location::Local(local_pointer) => {
-                self.bytecode.push(Bytecode::FindLocal(local_pointer))
+            Location::Local(local_distance) => {
+                self.push_code(Bytecode::PeekLocal(local_distance))
             }
         }
     }
@@ -309,5 +350,16 @@ mod compiler_tests {
         vm.load_chunk(IRCompiler::compile_string(src));
         vm.run();
         assert_eq!(vm.local, vec![StackValue::Number(2.0)]);
+    }
+    #[test]
+    pub fn fn_dec() {
+        let src = r#"
+        let foo = (a) -> a;
+        foo(1)
+        "#;
+        let mut vm = Vm::new();
+        vm.load_chunk(IRCompiler::compile_string(src));
+        vm.run();
+        assert_eq!(vm.chunk().stack, vec![StackValue::Number(1.0)])
     }
 }

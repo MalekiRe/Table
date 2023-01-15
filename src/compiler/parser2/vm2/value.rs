@@ -1,5 +1,6 @@
 use simple_error::SimpleError;
-use crate::compiler::parser2::vm2::pointers::HeapPointer;
+use crate::compiler::parser2::vm2::chunk::Chunk;
+use crate::compiler::parser2::vm2::pointers::{ChunkPointer, HeapPointer};
 use crate::compiler::parser2::vm2::table::Table;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -10,6 +11,7 @@ pub enum StackValue {
     Boolean(bool),
     String(HeapPointer),
     Table(HeapPointer),
+    Chunk(ChunkPointer),
 }
 
 #[derive(Debug, Clone)]
@@ -20,6 +22,7 @@ pub enum HeapValue {
     Boolean(bool),
     String(String),
     Table(Table),
+    Chunk(Chunk),
 }
 
 impl StackValue {
@@ -35,6 +38,12 @@ impl StackValue {
             _ => Err(SimpleError::new("not a table pointer")),
         }
     }
+    pub fn try_to_chunk_pointer(self) -> Result<ChunkPointer, SimpleError> {
+        match self {
+            StackValue::Chunk(chunk_pointer) => Ok(chunk_pointer),
+            _ => Err(SimpleError::new("not a chunk pointer")),
+        }
+    }
     pub fn try_to_heap_value(&self) -> Result<HeapValue, SimpleError> {
         match self {
             StackValue::Nil => Ok(HeapValue::Nil),
@@ -43,6 +52,7 @@ impl StackValue {
             StackValue::Boolean(bool) => Ok(HeapValue::Boolean(*bool)),
             StackValue::String(_) => Err(SimpleError::new("is a string, not able to be turned into a heap value")),
             StackValue::Table(_) => Err(SimpleError::new("is a table, not able to be turned into a heap value")),
+            StackValue::Chunk(_) => Err(SimpleError::new("is a chunk, not able to be turned into a heap value")),
         }
     }
 }
@@ -56,6 +66,7 @@ impl HeapValue {
             HeapValue::Boolean(bool) => Ok(StackValue::Boolean(*bool)),
             HeapValue::String(_) => Err(SimpleError::new("is a string, not able to be turned into a stack value")),
             HeapValue::Table(_) => Err(SimpleError::new("is a table, not able to be turned into a stack value")),
+            HeapValue::Chunk(_) => Err(SimpleError::new("is a chunk, not able to be turned into a stack value"))
         }
     }
 }

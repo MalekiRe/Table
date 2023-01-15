@@ -1,4 +1,4 @@
-use crate::compiler::parser2::vm2::pointers::{ConstantPointer, HeapPointer, InstructionPointer, LocalPointer, StackPointer};
+use crate::compiler::parser2::vm2::pointers::{ConstantPointer, HeapPointer, InstructionPointer, LocalDistance, StackPointer};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Bytecode {
@@ -20,18 +20,16 @@ pub enum Bytecode {
     AllocString,
     /// peeks `value` an pushes it onto heap and pushes `heap_index` onto stack
     AllocValue,
-    /// pushes `local_vars.peek(usize)` onto stack
-    PeekLocal(usize),
-    /// pushes `local_vars[LocalPointer]` onto stack
-    FindLocal(LocalPointer),
+    /// pushes `local_vars.peek(LocalDistance)` onto stack
+    PeekLocal(LocalDistance),
     /// peeks `value` and `local_vars.push(value)`
     PushLocal,
     /// `local_vars.pop()` and pushes onto stack
     PopLocal,
-    /// pops `value` and `local_vars[LocalPointer] = value`
-    SetLocal(LocalPointer),
-    /// `local = local_vars[LocalPointer]` and then `heap.push(local)` and then pushes `heap.len()-1` onto stack
-    AllocLocal(LocalPointer),
+    /// pops `value` and `local_vars[LocalDistance] = value`
+    SetLocal(LocalDistance),
+    /// `local = local_vars[LocalDistance]` and then `heap.push(local)` and then pushes `heap.len()-1` onto stack
+    AllocLocal(LocalDistance),
     /// pops `rhs` `lhs` and pushes `lhs + rhs` onto stack
     Add,
     /// pops `rhs` `lhs` and pushes `lhs == rhs` onto stack
@@ -52,4 +50,8 @@ pub enum Bytecode {
     PushTableStr,
     /// pops `value` peeks `heap_index` and `string = Heap[heap_index]` `string.push(value)`
     PushChar,
+    /// pops 'chunk_pointer' and runs it.
+    RunChunk,
+    /// pops the current chunk.
+    Return,
 }

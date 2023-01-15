@@ -1,11 +1,15 @@
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ChunkPointer(pub usize);
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HeapPointer(pub usize);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ConstantPointer(pub usize);
 
+/// distance from the top of the locals thing
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct LocalPointer(pub usize);
+pub struct LocalDistance(pub usize);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StackPointer(usize);
@@ -60,12 +64,12 @@ impl Into<usize> for ConstantPointer {
     }
 }
 
-impl From<usize> for LocalPointer {
+impl From<usize> for LocalDistance {
     fn from(value: usize) -> Self {
-        LocalPointer(value)
+        LocalDistance(value)
     }
 }
-impl Into<usize> for LocalPointer {
+impl Into<usize> for LocalDistance {
     fn into(self) -> usize {
         self.0
     }
@@ -88,6 +92,17 @@ impl From<usize> for InstructionPointer {
     }
 }
 impl Into<usize> for InstructionPointer {
+    fn into(self) -> usize {
+        self.0
+    }
+}
+
+impl From<usize> for ChunkPointer {
+    fn from(value: usize) -> Self {
+        ChunkPointer(value)
+    }
+}
+impl Into<usize> for ChunkPointer {
     fn into(self) -> usize {
         self.0
     }
