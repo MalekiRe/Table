@@ -3,8 +3,8 @@ use chumsky::prelude::{just, recursive};
 use crate::compiler::parser2::error::ErrorT;
 use crate::compiler::parser2::lexer::{Control, Token};
 use crate::compiler::parser2::parser::variable;
-use crate::compiler::parser2::parsing_ir::{Exp, ExpStatement, LetStatement, ReassignStatement, Statement, TableAssign, UniqueIdentTableAssign};
-use crate::compiler::parser2::tokens::{colon, comma, equals, identifier, left_paren, r#let, right_paren, semicolon};
+use crate::compiler::parser2::parsing_ir::{Exp, ExpStatement, LetStatement, ReassignStatement, Statement, StatementBlock, TableAssign, UniqueIdentTableAssign};
+use crate::compiler::parser2::tokens::{colon, comma, equals, identifier, left_curly, left_paren, r#let, right_curly, right_paren, semicolon};
 
 pub trait TParser<T> = chumsky::Parser<Token, T, Error =ErrorT> + Clone;
 
@@ -13,8 +13,13 @@ pub fn statement(exp: impl TParser<Exp> + 'static) -> impl TParser<Statement> {
         let exp_statement = exp_statement(exp.clone()).map(Statement::ExpStatement);
         let let_statement = let_statement(exp.clone()).map(Statement::LetStatement);
         let reassign_statement = reassign_statement(exp.clone(), statement.clone()).map(Statement::ReassignStatement);
-        let_statement.or(reassign_statement).or(exp_statement)
+        let statement_block = statement_block(statement.clone()).map(Statement::StatementBlock);
+        let_statement.or(reassign_statement).or(exp_statement).or(statement_block)
     })
+}
+pub fn statement_block(statement: impl TParser<Statement>) -> impl TParser<StatementBlock> {
+    statement.repeated().delimited_by(left_curly(), right_curly())
+        .map(|statements| StatementBlock{ statements: statements.into_iter().map(Box::new).collect()})
 }
 pub fn exp_statement(exp: impl TParser<Exp>) -> impl TParser<ExpStatement> {
     exp.then_ignore(just(Token::Control(Control::Semicolon))).map(Box::new)

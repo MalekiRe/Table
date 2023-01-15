@@ -17,6 +17,12 @@ pub fn left_paren() -> impl TParser<Token> {
 pub fn right_paren() -> impl TParser<Token> {
     just(Token::Control(Control::RightParen))
 }
+pub fn left_curly() -> impl TParser<Token> {
+    just(Token::Control(Control::LeftCurly))
+}
+pub fn right_curly() -> impl TParser<Token> {
+    just(Token::Control(Control::RightCurly))
+}
 pub fn comma() -> impl TParser<Token> {
     just(Token::Control(Control::Comma))
 }

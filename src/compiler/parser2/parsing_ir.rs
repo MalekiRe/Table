@@ -238,7 +238,7 @@ pub enum BreakStatement {
 
 #[derive(Clone, Debug)]
 pub struct StatementBlock {
-    statements: Vec<BStatement>,
+    pub(crate) statements: Vec<BStatement>,
 }
 
 #[derive(Clone, Debug)]

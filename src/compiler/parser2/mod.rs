@@ -119,6 +119,10 @@ mod parser_test {
     fn simple_statement_then_exp() {
         parse("let x = 1; x").unwrap();
     }
+    #[test]
+    fn statement_block() {
+        parse("{let x = 1;}").unwrap();
+    }
 
 }
 /*

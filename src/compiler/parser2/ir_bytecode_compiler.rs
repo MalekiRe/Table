@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::compiler::ir::{IdentifierT};
 use crate::compiler::parser2::parser::parse;
-use crate::compiler::parser2::parsing_ir::{BStatement, Exp, ExpBlock, File, LetStatement, Literal, Statement};
+use crate::compiler::parser2::parsing_ir::{BStatement, Exp, ExpBlock, File, LetStatement, Literal, ReassignStatement, Statement, StatementBlock, Variable};
 use crate::compiler::parser2::vm2::bytecode::Bytecode;
 use crate::compiler::parser2::vm2::chunk::Chunk;
 use crate::compiler::parser2::vm2::pointers::{ConstantPointer, HeapPointer, LocalPointer};
@@ -147,14 +147,42 @@ impl IRCompiler {
 
     pub fn statement(&mut self, statement: Statement) {
         match statement {
-            Statement::StatementBlock(_) => todo!(),
+            Statement::StatementBlock(statement_block) => self.statement_block(statement_block),
             Statement::LetStatement(let_statement) => self.let_statement(let_statement),
-            Statement::ReassignStatement(_) => todo!(),
+            Statement::ReassignStatement(reassign_statement) => self.reassign_statement(reassign_statement),
             Statement::BreakStatement(_) => todo!(),
             Statement::IfStatement(_) => todo!(),
             Statement::ReturnStatement(_) => todo!(),
             Statement::ExpStatement(_) => todo!(),
             Statement::MacroCall(_) => todo!(),
+        }
+    }
+    pub fn reassign_statement(&mut self, reassign_statement: ReassignStatement) {
+        match reassign_statement {
+            ReassignStatement::SingleVarAssign(identifier, exp) => {
+                let identifier = match identifier {
+                    Variable::Identifier(identifier) => identifier,
+                    Variable::TableIndexing(_) => todo!(),
+                    Variable::TableFieldAccess(_) => todo!(),
+                };
+                let location = self.scope_holder.find_var(identifier).unwrap();
+                match location {
+                    Location::Heap(_) => todo!(),
+                    Location::Local(local_pointer) => {
+                        self.exp(*exp);
+                        self.bytecode.push(Bytecode::SetLocal(local_pointer));
+                    }
+                }
+            }
+            ReassignStatement::Table(_) => todo!(),
+            ReassignStatement::UniqueIdentTable(_) => todo!(),
+        }
+    }
+    pub fn statement_block(&mut self, statement_block: StatementBlock) {
+        match statement_block {
+            StatementBlock { statements } => {
+                self.b_statements(statements)
+            }
         }
     }
     pub fn let_statement(&mut self, let_statement: LetStatement) {
@@ -267,5 +295,19 @@ mod compiler_tests {
         vm.load_chunk(IRCompiler::compile_string(src));
         vm.run();
         assert_eq!(vm.local, vec![StackValue::Number(1.0), StackValue::Number(2.0)])
+    }
+    #[test]
+    pub fn reassignment() {
+        let src = r#"
+        let x = 1;
+        {
+            x = 2;
+        }
+        x
+        "#;
+        let mut vm = Vm::new();
+        vm.load_chunk(IRCompiler::compile_string(src));
+        vm.run();
+        assert_eq!(vm.local, vec![StackValue::Number(2.0)]);
     }
 }
