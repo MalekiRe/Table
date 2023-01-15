@@ -41,7 +41,7 @@ impl StackValue {
     pub fn try_to_chunk_pointer(self) -> Result<ChunkPointer, SimpleError> {
         match self {
             StackValue::Chunk(chunk_pointer) => Ok(chunk_pointer),
-            _ => Err(SimpleError::new("not a chunk pointer")),
+            this => Err(SimpleError::new(format!("not a chunk pointer: {:?}", this))),
         }
     }
     pub fn try_to_heap_value(&self) -> Result<HeapValue, SimpleError> {

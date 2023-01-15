@@ -15,6 +15,7 @@ pub enum Location {
 }
 
 pub struct Scope {
+    anonymous_locals: usize,
     local_variables: HashMap<IdentifierT, usize>,
     heap_variables: HashMap<IdentifierT, HeapPointer>,
 }
@@ -27,6 +28,7 @@ pub struct ScopeHolder {
 impl Default for Scope {
     fn default() -> Self {
         Self {
+            anonymous_locals: 0,
             local_variables: Default::default(),
             heap_variables: Default::default(),
         }
@@ -46,7 +48,11 @@ impl ScopeHolder {
     pub fn push_local_var(&mut self, identifier: IdentifierT) {
         let scope = self.scopes.last_mut().unwrap();
         let len = scope.local_variables.len();
+        let anon_locals = scope.anonymous_locals;
         scope.local_variables.insert(identifier, len);
+    }
+    pub fn push_anon_local(&mut self) {
+        self.scopes.last_mut().unwrap().anonymous_locals += 1;
     }
     pub fn find_var(&self, identifier: IdentifierT) -> Option<Location> {
         let mut scope_index = self.scopes.len();
@@ -57,7 +63,8 @@ impl ScopeHolder {
                 None => {}
                 Some(location) => {
                     let len = self.scopes[scope_index].local_variables.len() - 1;
-                    let distance = LocalDistance(len - *location);
+                    let anon_local = self.scopes[scope_index].anonymous_locals;
+                    let distance = LocalDistance((len + anon_local) - *location);
                     return Some(Location::Local(distance))
                 }
             }
@@ -214,14 +221,19 @@ impl IRCompiler {
     pub fn fn_call(&mut self, fn_call: FnCall) {
         match fn_call {
             FnCall { ident, fn_call_args } => {
-                let location = self.scope_holder.find_var(ident).unwrap();
+                let mut len = None;
                 match fn_call_args {
                     FnCallArgs { args } => {
-                        for b_exp in args {
+                        len = Some(args.len());
+                        for (i, b_exp) in args.into_iter().enumerate() {
                             self.exp(*b_exp);
+                            self.push_code(Bytecode::PushLocal);
+                            self.scope_holder.push_anon_local();
+                            self.push_code(Bytecode::Pop);
                         }
                     }
                 }
+                let location = self.scope_holder.find_var(ident).unwrap();
                 match location {
                     Location::Heap(_) => todo!(),
                     Location::Local(local_distance) => {
@@ -243,10 +255,10 @@ impl IRCompiler {
         self.scope_holder.push_scope();
         match fn_dec {
             FnDec { dec_args, body } => {
-                match dec_args {
+                match &dec_args {
                     FnDecArgs { args } => {
-                        for arg in args {
-                            self.scope_holder.push_local_var(arg);
+                        for  arg in args {
+                            self.scope_holder.push_local_var(arg.clone());
                         }
                     }
                 }
@@ -361,5 +373,18 @@ mod compiler_tests {
         vm.load_chunk(IRCompiler::compile_string(src));
         vm.run();
         assert_eq!(vm.chunk().stack, vec![StackValue::Number(1.0)])
+    }
+    #[test]
+    pub fn more_complex_fn() {
+        let src = r#"
+        let foo = (a) -> a;
+        let bar = (a, b) -> b;
+        foo(bar(1, 2))
+        "#;
+        let mut vm = Vm::new();
+        //panic!("{:#?}", IRCompiler::compile_string(src));
+        vm.load_chunk(IRCompiler::compile_string(src));
+        vm.run();
+        assert_eq!(vm.chunk().stack, vec![StackValue::Number(2.0)])
     }
 }

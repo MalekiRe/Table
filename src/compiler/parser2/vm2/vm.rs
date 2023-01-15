@@ -20,7 +20,8 @@ impl Vm {
         self.chunks.push(chunk);
     }
     pub fn unload_chunk(&mut self) {
-        self.chunks.pop().unwrap();
+        let mut chunk = self.chunks.pop().unwrap();
+        self.chunk_mut().stack.append(&mut chunk.stack);
     }
     pub fn chunk(&self) -> &Chunk {
         self.chunks.last().unwrap()
