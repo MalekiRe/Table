@@ -1,19 +1,19 @@
-#[derive(Debug, Clone, Copy)]
-pub struct HeapPointer(usize);
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HeapPointer(pub usize);
 
-#[derive(Debug, Clone, Copy)]
-pub struct ConstantPointer(usize);
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ConstantPointer(pub usize);
 
-#[derive(Debug, Clone, Copy)]
-pub struct LocalPointer(usize);
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LocalPointer(pub usize);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StackPointer(usize);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct InstructionPointer(pub usize);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TableIndex(usize);
 
 impl InstructionPointer {

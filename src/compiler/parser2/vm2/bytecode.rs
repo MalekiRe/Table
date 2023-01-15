@@ -1,6 +1,6 @@
 use crate::compiler::parser2::vm2::pointers::{ConstantPointer, HeapPointer, InstructionPointer, LocalPointer, StackPointer};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Bytecode {
     /// takes the value `distance = u32` and `stack.peek(distance)`
     DupAt(usize),

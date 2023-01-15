@@ -2,7 +2,7 @@ use simple_error::SimpleError;
 use crate::compiler::parser2::vm2::pointers::HeapPointer;
 use crate::compiler::parser2::vm2::table::Table;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StackValue {
     Nil,
     Char(char),

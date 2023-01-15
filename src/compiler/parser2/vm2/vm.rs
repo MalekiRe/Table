@@ -6,7 +6,7 @@ use crate::compiler::parser2::vm2::value::{HeapValue, StackValue};
 pub struct Vm {
     chunks: Vec<Chunk>,
     heap: Vec<HeapValue>,
-    local: Vec<StackValue>,
+    pub local: Vec<StackValue>,
 }
 impl Vm {
     pub fn new() -> Self {

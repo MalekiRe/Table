@@ -124,8 +124,9 @@ pub fn exp() -> impl TParser<Exp> {
         let range_creation = range_creation(exp.clone()).map(Exp::RangeCreation);
         let fn_dec = fn_dec(block.clone()).map(Exp::FnDec);
         let table_exp = table_exp(exp.clone(), statement.clone()).map(Exp::TableExp);
+        let variable_identifier = identifier().map(Exp::VariableIdentifier);
 
-        range_creation.or(exp_block).or(fn_dec).or(table_exp).or(fn_call).or(literal)
+        range_creation.or(exp_block).or(fn_dec).or(table_exp).or(fn_call).or(literal).or(variable_identifier)
     })
 }
 pub fn fn_call_args(exp: impl TParser<Exp>) -> impl TParser<FnCallArgs> {

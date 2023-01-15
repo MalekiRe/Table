@@ -10,6 +10,8 @@ mod table_exp;
 mod parsing_ir;
 mod statement;
 mod vm2;
+mod ir_bytecode_compiler;
+
 
 #[cfg(test)]
 mod parser_test {
@@ -111,7 +113,11 @@ mod parser_test {
     }
     #[test]
     fn simple_reassignment() {
-        parse("x = foo();");
+        parse("x = foo();").unwrap();
+    }
+    #[test]
+    fn simple_statement_then_exp() {
+        parse("let x = 1; x").unwrap();
     }
 
 }
