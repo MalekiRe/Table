@@ -129,8 +129,8 @@ pub fn exp() -> impl TParser<Exp> {
     })
 }
 pub fn fn_call_args(exp: impl TParser<Exp>) -> impl TParser<FnCallArgs> {
-    let with_args = exp.separated_by(just(Token::Control(Control::Comma))).allow_trailing()
-        .delimited_by(just(Token::Control(LeftParen)), just(Token::Control(RightParen)))
+    let with_args = exp.separated_by(comma()).allow_trailing()
+        .delimited_by(left_paren(), right_paren())
         .map(|args| {
             FnCallArgs {
                 args: args.into_iter().map(Box::new).collect()
@@ -148,8 +148,8 @@ pub fn fn_call(exp: impl TParser<Exp>) -> impl TParser<FnCall> {
         })
 }
 pub fn fn_dec_args() -> impl TParser<FnDecArgs> {
-    let with_args = identifier().separated_by(just(Token::Control(Comma))).allow_trailing()
-        .delimited_by(just(Token::Control(LeftParen)), just(Token::Control(RightParen)))
+    let with_args = identifier().separated_by(comma()).allow_trailing()
+        .delimited_by(left_paren(), right_paren())
         .map(|args| {
             FnDecArgs {
                 args

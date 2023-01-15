@@ -9,6 +9,7 @@ mod tokens;
 mod table_exp;
 mod parsing_ir;
 mod statement;
+mod vm2;
 
 #[cfg(test)]
 mod parser_test {
