@@ -11,6 +11,7 @@ mod parsing_ir;
 mod statement;
 mod vm2;
 mod ir_bytecode_compiler;
+mod vm3;
 
 
 #[cfg(test)]

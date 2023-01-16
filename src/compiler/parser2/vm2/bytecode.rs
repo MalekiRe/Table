@@ -1,4 +1,5 @@
-use crate::compiler::parser2::vm2::pointers::{ConstantPointer, HeapPointer, InstructionPointer, LocalDistance, StackPointer};
+use crate::compiler::ir::ir_bytecode_compiler::TablePointer;
+use crate::compiler::parser2::vm2::pointers::{ChunkPointer, ConstantPointer, HeapPointer, InstructionPointer, LocalDistance, StackPointer};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Bytecode {
