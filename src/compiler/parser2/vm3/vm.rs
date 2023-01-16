@@ -71,12 +71,31 @@ impl Vm {
         let distance: usize = distance.into();
         let len = self.local.len() - 1;
         let index = len - distance;
-        self.local[index] = stack_value;
+        match self.local[index] {
+            StackValue::HeapPointer(heap_pointer) => {
+                let pointer: usize = heap_pointer.into();
+                self.heap[pointer] = stack_value.try_into().unwrap();
+            }
+            _ => {self.local[index] = stack_value;}
+        }
     }
 
     pub fn find_heap_value(&self, heap_pointer: HeapPointer) -> &HeapValue {
         let heap_pointer: usize = heap_pointer.into();
         &self.heap[heap_pointer]
+    }
+    pub fn find_heap_number(&self, number_pointer: NumberPointer) -> StackValue {
+        let number_pointer: usize = number_pointer.into();
+        match &self.heap[number_pointer] {
+            HeapValue::Number(number) => StackValue::Number(*number),
+            _ => panic!(),
+        }
+    }
+    pub fn find_heap_bool(&self, bool_pointer: BooleanPointer) -> StackValue {
+        todo!()
+    }
+    pub fn find_heap_char(&self, char_pointer: CharPointer) -> StackValue {
+        todo!()
     }
     pub fn run(&mut self) {
         loop {
@@ -86,7 +105,24 @@ impl Vm {
             self.chunk_mut().instruction_ptr.increment();
             match self.chunk_ref().prev_bytecode() {
                 Bytecode::PeekLocal(local_distance) => {
-                    let stack_value = self.peek_local(local_distance);
+                    let mut stack_value = self.peek_local(local_distance);
+                    match stack_value {
+                        StackValue::HeapPointer(heap_pointer) => {
+                            match heap_pointer {
+                                HeapPointer::Number(number) => {
+                                    stack_value = self.find_heap_number(number);
+                                }
+                                HeapPointer::Boolean(boolean) => {
+                                    stack_value = self.find_heap_bool(boolean);
+                                }
+                                HeapPointer::Char(char) => {
+                                    stack_value = self.find_heap_char(char);
+                                }
+                                _ => {}
+                            }
+                        }
+                        _ => {}
+                    }
                     self.push_stack(stack_value);
                 },
                 Bytecode::PushLocal => {
@@ -150,7 +186,7 @@ mod virtual_machine_test {
     use crate::compiler::parser2::vm3::bytecode::Bytecode;
     use crate::compiler::parser2::vm3::chunk::Chunk;
     use crate::compiler::parser2::vm3::pointer::{ConstantPointer, LocalDistance};
-    use crate::compiler::parser2::vm3::value::StackValue;
+    use crate::compiler::parser2::vm3::value::{HeapValue, StackValue};
     use crate::compiler::parser2::vm3::vm::Vm;
 
     #[test]
@@ -169,5 +205,29 @@ mod virtual_machine_test {
         let mut vm = Vm::new(Chunk::from(bytecode, constants));
         vm.run();
         assert_eq!(vm.chunk_ref().stack, vec![StackValue::Boolean(false)]);
+    }
+    #[test]
+    pub fn upvalue() {
+        let bytecode = vec![
+            Bytecode::LoadConstant(ConstantPointer(0)),
+            Bytecode::PushLocal,
+            Bytecode::LoadConstant(ConstantPointer(1)),
+            Bytecode::PushLocal,
+            Bytecode::UpValueLocal(LocalDistance(1)),
+            Bytecode::LoadConstant(ConstantPointer(1)),
+            Bytecode::SetLocal(LocalDistance(1))
+        ];
+        let constants = vec![
+          StackValue::Number(1.0),
+            StackValue::Char('h'),
+        ];
+        let mut vm = Vm::new(Chunk::from(bytecode, constants));
+        vm.run();
+        match vm.heap.pop().unwrap() {
+            HeapValue::Char(number) => {
+                assert_eq!(number, 'h')
+            }
+            _ => panic!(),
+        }
     }
 }

@@ -61,3 +61,17 @@ impl TryFrom<StackValue> for ChunkPointer {
         }
     }
 }
+
+impl TryFrom<StackValue> for HeapValue {
+    type Error = SimpleError;
+
+    fn try_from(value: StackValue) -> Result<Self, Self::Error> {
+        match value {
+            StackValue::Nil => Err(SimpleError::new("value is nil")),
+            StackValue::Number(number) => Ok(HeapValue::Number(number)),
+            StackValue::Char(char) => Ok(HeapValue::Char(char)),
+            StackValue::Boolean(boolean) => Ok(HeapValue::Boolean(boolean)),
+            StackValue::HeapPointer(_) => Err(SimpleError::new("conversion failure")),
+        }
+    }
+}
