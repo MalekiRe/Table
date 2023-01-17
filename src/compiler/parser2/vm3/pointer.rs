@@ -12,15 +12,15 @@ pub enum HeapPointer {
 pub struct LocalDistance(pub usize);
 #[derive(Debug, Clone)]
 pub struct StackDistance(pub usize);
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ConstantPointer(pub usize);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct ChunkPointer(usize);
+pub struct ChunkPointer(pub usize);
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TablePointer(usize);
+pub struct TablePointer(pub usize);
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct StringPointer(usize);
+pub struct StringPointer(pub usize);
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct NumberPointer(pub usize);
 #[derive(Debug, Copy, Clone, PartialEq)]

@@ -1,5 +1,6 @@
 use crate::compiler::parser2::vm3::bytecode::{Bytecode};
 use crate::compiler::parser2::vm3::chunk::Chunk;
+use crate::compiler::parser2::vm3::ir_bytecode_compiler::IRCompiler;
 use crate::compiler::parser2::vm3::pointer::{BooleanPointer, CharPointer, ChunkPointer, ConstantPointer, HeapPointer, LocalDistance, NumberPointer, StackDistance};
 use crate::compiler::parser2::vm3::value::{HeapValue, StackValue};
 
@@ -20,6 +21,10 @@ impl Default for Vm {
 }
 
 impl Vm {
+    pub fn compile_str(str: &str) -> Self {
+        let this = Self::new(IRCompiler::compile_string(str));
+        this
+    }
     pub fn new(chunk: Chunk) -> Self {
         Self {
             chunks: vec![chunk],
