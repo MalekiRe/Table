@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use chumsky::chain::Chain;
 use crate::compiler::parser2::ir_bytecode_compiler::Location;
 use crate::compiler::parser2::parser::parse;
-use crate::compiler::parser2::parsing_ir::{Block, BStatement, Exp, File, FnCall, FnDec, IdentifierT, LetStatement, Literal, Statement};
+use crate::compiler::parser2::parsing_ir::{Block, BStatement, Exp, ExpBlock, File, FnCall, FnDec, IdentifierT, LetStatement, Literal, Statement};
 use crate::compiler::parser2::vm3::bytecode::Bytecode;
 use crate::compiler::parser2::vm3::chunk::Chunk;
 use crate::compiler::parser2::vm3::pointer::{ChunkPointer, ConstantPointer, HeapPointer, LocalDistance};
@@ -59,6 +59,9 @@ impl ScopeHolder {
     pub fn push_anon_local(&mut self) {
         self.scope_mut().anon_locals += 1;
     }
+    pub fn pop_anon_local(&mut self) {
+        self.scope_mut().anon_locals -= 1;
+    }
     pub fn push_local_variable(&mut self, identifier: IdentifierT) {
         let len = self.scope_mut().variables.len();
         self.scope_mut().variables.insert(identifier, Variable::Stack(LocalDistance(len)));
@@ -84,7 +87,9 @@ impl ScopeHolder {
                             Variable::Heap(LocalDistance(distance))
                         }
                         Variable::Stack(distance) => {
+                            print!("ident: {}, index: {}", identifier, distance.0);
                             let distance = (len + anon_local) - distance.0;
+                            println!(", distance: {}", distance);
                             Variable::Stack(LocalDistance(distance))
                         }
                     }, scope_type));
@@ -97,9 +102,30 @@ impl ScopeHolder {
         }
         None
     }
-    pub fn uplift_variable(&mut self, variable: IdentifierT) {
-        todo!();
-        //let variable = self.scopes[scope_index].variables.remove(variable.as_str()).unwrap();
+    pub fn uplift_variable(&mut self, identifier: IdentifierT) {
+        let mut scope_index = self.scopes.len();
+        loop {
+            if scope_index == 0 { break; }
+            scope_index -= 1;
+            let thing = match self.scopes[scope_index].variables.get(identifier.as_str()) {
+                None => None,
+                Some(variable) => {
+                    Some(Variable::Heap(LocalDistance(match variable {
+                        Variable::Heap(_) => panic!(),
+                        Variable::Stack(distance) => distance.0
+                    })))
+                }
+            };
+            self.scopes[scope_index].variables.remove(identifier.as_str());
+            match thing {
+                None => {}
+                Some(thing) => {
+                    self.scopes[scope_index].variables.insert(identifier.clone(), thing);
+                }
+            }
+            return;
+
+        }
     }
 }
 
@@ -109,6 +135,10 @@ pub struct IRCompiler {
 }
 
 impl IRCompiler {
+    pub fn prev_chunk(&mut self) -> &mut Chunk {
+        let index = self.chunks.len()-2;
+        self.chunks.get_mut(index).unwrap()
+    }
     pub fn do_closure_scope(&mut self, mut cb: impl Fn(&mut IRCompiler) -> ()) {
         self.scope_holder.push_closure_scope();
         cb(self);
@@ -204,8 +234,11 @@ impl IRCompiler {
                 self.push_code(Bytecode::PushLocal);
             }
             LetStatement::SingleAssign(identifier, b_exp) => {
-                self.exp(*b_exp);
                 self.scope_holder.push_local_variable(identifier);
+                self.add_constant(StackValue::Nil);
+                self.push_code(Bytecode::PushLocal);
+                self.exp(*b_exp);
+                self.push_code(Bytecode::PopLocal);
                 self.push_code(Bytecode::PushLocal);
             }
             LetStatement::Table(_) => todo!(),
@@ -216,7 +249,7 @@ impl IRCompiler {
     pub fn exp(&mut self, exp: Exp) {
         match exp {
             Exp::BinaryExp(_) => todo!(),
-            Exp::ExpBlock(_) => todo!(),
+            Exp::ExpBlock(exp_block) => self.exp_block(exp_block),
             Exp::FnCall(fn_call) => self.fn_call(fn_call),
             Exp::FnDec(fn_dec) => self.fn_dec(fn_dec),
             Exp::TableExp(_) => todo!(),
@@ -227,6 +260,15 @@ impl IRCompiler {
             Exp::Literal(literal) => self.literal(literal),
             Exp::VariableIdentifier(variable_identifier) => self.variable_identifier(variable_identifier),
         }
+    }
+    pub fn exp_block(&mut self, exp_block: ExpBlock) {
+        match exp_block {
+            ExpBlock { statements, exp } => {
+                self.b_statements(statements);
+                self.exp(*exp);
+            }
+        }
+
     }
     pub fn fn_call(&mut self, fn_call: FnCall) {
         match fn_call {
@@ -268,7 +310,7 @@ impl IRCompiler {
         };
     }
     pub fn variable_identifier(&mut self, variable_identifier: IdentifierT) {
-        let (location, scope_type) = self.scope_holder.find_variable(variable_identifier).unwrap();
+        let (location, scope_type) = self.scope_holder.find_variable(variable_identifier.clone()).unwrap();
         match location {
             Variable::Heap(_) => todo!(),
             Variable::Stack(local_distance) => {
@@ -277,7 +319,9 @@ impl IRCompiler {
                         self.push_code(Bytecode::PeekLocal(local_distance))
                     }
                     ScopeType::Closure => {
-                        todo!()
+                        self.prev_chunk().bytecode.push(Bytecode::UpValueLocal(local_distance.clone()));
+                        self.push_code(Bytecode::PeekLocal(local_distance));
+                        self.scope_holder.uplift_variable(variable_identifier);
                     }
                 }
             }
@@ -340,8 +384,20 @@ mod fullstack_tests {
         let foo = () -> x;
         foo()
         "#;
+        let chunk = IRCompiler::compile_string(src);
+        println!("{:#?}", chunk);
         let mut vm = Vm::compile_str(src);
         vm.run();
         assert_eq!(vm.chunk_ref().stack, vec![StackValue::Number(2.0)])
+    }
+    #[test]
+    fn multiple_def() {
+        let src = r#"
+        let z = 2;
+        let x = { let y = 1; y};
+        x
+        "#;
+        let chunk = IRCompiler::compile_string(src);
+        println!("{:#?}", chunk);
     }
 }

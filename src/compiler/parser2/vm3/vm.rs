@@ -64,6 +64,8 @@ impl Vm {
     pub fn peek_local(&self, distance: LocalDistance) -> StackValue {
         let distance: usize = distance.into();
         let len = self.local.len() - 1;
+        println!("len_locals: {}, distance: {}", len, distance);
+        //println!("locals: {:#?}", self.local);
         *self.local.get(len - distance).unwrap()
     }
     pub fn push_local(&mut self, stack_value: StackValue) {
@@ -108,6 +110,7 @@ impl Vm {
                 break;
             }
             self.chunk_mut().instruction_ptr.increment();
+            println!("locals: {:?}, bytecode: {:?}", self.local, self.chunk_ref().prev_bytecode());
             match self.chunk_ref().prev_bytecode() {
                 Bytecode::PeekLocal(local_distance) => {
                     let mut stack_value = self.peek_local(local_distance);
@@ -154,7 +157,7 @@ impl Vm {
                         StackValue::Number(number) => HeapValue::Number(number),
                         StackValue::Char(char) => HeapValue::Char(char),
                         StackValue::Boolean(bool) => HeapValue::Boolean(bool),
-                        StackValue::HeapPointer(_) => panic!("impossible"),
+                        StackValue::HeapPointer(heap_pointer) => panic!("impossible: {:#?}", heap_pointer),
                     };
                     let index = self.heap.len();
                     self.heap.push(heap_value);
